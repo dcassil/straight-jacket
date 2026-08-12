@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8 - 2026-08-12
+
+- Added a `Release` workflow that publishes the npm package, tag, and GitHub release on every push to `main`.
+- Updated the required `verify` workflow to block PRs whose package version is already published.
+- Added repository agent rules requiring version/changelog bumps before merging to `main`.
+
 ## 0.1.7 - 2026-08-12
 
 - Fixed batch `add` coverage for shell-expanded path lists such as `tools/pre-commit-alpha tools/pre-commit-beta`.
