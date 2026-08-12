@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
 import { resolveRepoPath } from "../git/paths.js";
 import { scanForChecksum } from "../git/scan.js";
+import { getStagedChanges, readStagedFile } from "../git/staged.js";
 import { canonicalizeJson } from "../manifest/canonical-json.js";
 import { readManifest, readPublicKey, readSignature } from "../manifest/read-write.js";
 import { validateManifestShape } from "../manifest/validation.js";
@@ -12,6 +13,9 @@ import { buildVerificationResult } from "./verification-result.js";
 
 export async function verifyRepository({ repoRoot, scope = "working-tree", trustedPublicKeyFingerprint, skipSignatureForDiagnostics = false } = {}) {
   if (scope !== "working-tree") {
+    if (scope === "staged") {
+      return verifyStagedScope({ repoRoot });
+    }
     return buildVerificationResult({ checked: 0, violations: [] });
   }
 
@@ -61,6 +65,52 @@ export async function verifyRepository({ repoRoot, scope = "working-tree", trust
 
   return buildVerificationResult({
     checked: Array.isArray(manifest.value?.entries) ? manifest.value.entries.length : 0,
+    violations
+  });
+}
+
+async function verifyStagedScope({ repoRoot }) {
+  const manifest = await readJsonOrViolation(repoRoot, "manifest");
+  if (manifest.violation) {
+    return buildVerificationResult({ checked: 0, violations: [manifest.violation] });
+  }
+
+  const changes = await getStagedChanges(repoRoot);
+  const violations = [];
+  const protectedPaths = new Set(manifest.value.entries.map((entry) => entry.path));
+
+  for (const change of changes) {
+    if ((change.status === "deleted" && protectedPaths.has(change.path)) ||
+      (change.status === "renamed" && protectedPaths.has(change.oldPath))) {
+      violations.push(createViolation("STAGED_PROTECTED_FILE_DELETED", {
+        path: change.oldPath ?? change.path
+      }));
+    }
+  }
+
+  if (changes.some((change) => change.path === ".straight-jacket/manifest.json")) {
+    const stagedManifestText = await readStagedFile(repoRoot, ".straight-jacket/manifest.json");
+    const stagedSignatureText = await readStagedFile(repoRoot, ".straight-jacket/manifest.sig");
+    const stagedPublicKeyText = await readStagedFile(repoRoot, ".straight-jacket/public-key.json");
+
+    const stagedSignature = stagedSignatureText ? JSON.parse(stagedSignatureText) : (await readJsonOrViolation(repoRoot, "signature")).value;
+    const stagedPublicKey = stagedPublicKeyText ? JSON.parse(stagedPublicKeyText) : (await readJsonOrViolation(repoRoot, "publicKey")).value;
+    const stagedManifest = JSON.parse(stagedManifestText);
+    const signatureValid = await verifyPayloadSignature({
+      payload: canonicalizeJson(stagedManifest),
+      signature: stagedSignature,
+      publicKey: stagedPublicKey
+    });
+
+    if (!signatureValid) {
+      violations.push(createViolation("STAGED_MANIFEST_SIGNATURE_INVALID", {
+        path: ".straight-jacket/manifest.json"
+      }));
+    }
+  }
+
+  return buildVerificationResult({
+    checked: manifest.value.entries.length,
     violations
   });
 }
