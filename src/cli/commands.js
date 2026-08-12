@@ -6,7 +6,7 @@ import {
   installCi,
   installHook,
   listProtectedFiles,
-  removeProtectedFile,
+  removeProtectedFiles,
   renameProtectedFile,
   updateProtectedFile,
   verifyRepository
@@ -91,11 +91,21 @@ export async function runCommand({ argv, cwd, stdin, stderr }) {
   }
 
   if (parsed.command === "remove") {
-    return removeProtectedFile({
+    const paths = allPositions(parsed, "remove requires at least one path or pattern");
+    const result = await removeProtectedFiles({
       repoRoot,
-      path: requiredPosition(parsed, 0, "remove requires a path"),
+      paths,
       password: await readPassword(stdin, stderr)
     });
+
+    if (result.removedPaths.length === 1) {
+      return {
+        ok: true,
+        removedPath: result.removedPaths[0]
+      };
+    }
+
+    return result;
   }
 
   if (parsed.command === "rename") {

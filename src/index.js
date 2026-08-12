@@ -6,6 +6,7 @@ export {
   addProtectedFile,
   addProtectedFiles,
   removeProtectedFile,
+  removeProtectedFiles,
   renameProtectedFile,
   updateProtectedFile
 } from "./core/protected-files.js";

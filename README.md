@@ -48,6 +48,8 @@ straight-jacket init --help
 straight-jacket init
 node bin/straight-jacket.mjs list --json
 node bin/straight-jacket.mjs verify --json
+straight-jacket add 'tools/pre-commit-*' --reason "Hook scripts"
+straight-jacket remove 'tools/pre-commit-*'
 ```
 
 ## Development

@@ -72,7 +72,8 @@ test("CLI help builder includes command usage and setup guidance", async () => {
   assert.match(buildHelp(), /straight-jacket init/);
   assert.match(buildHelp(), /straight-jacket <command> --help/);
   assert.match(buildHelp(), /Passwords are never accepted through --password/);
-  assert.match(buildHelp("add"), /straight-jacket add <path>/);
+  assert.match(buildHelp("add"), /straight-jacket add <path-or-pattern>\.\.\./);
+  assert.match(buildHelp("remove"), /straight-jacket remove <path-or-pattern>\.\.\./);
   assert.match(buildHelp("verify"), /--trusted-public-key-fingerprint/);
 });
 
