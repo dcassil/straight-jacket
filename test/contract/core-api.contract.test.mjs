@@ -148,6 +148,38 @@ test("removeProtectedFile requires the human password and re-signs the manifest"
   }
 });
 
+test("removeProtectedFiles unregisters every protected path matched by a glob pattern", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW });
+    await core.addProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: ["docs/*.md"],
+      password: PASSWORD,
+      reason: "Human-owned docs",
+      now: NOW
+    });
+
+    const result = await core.removeProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: ["docs/*.md"],
+      password: PASSWORD
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.removedPaths, [
+      "docs/other.md",
+      "docs/policy.md"
+    ]);
+
+    const verify = await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" });
+    assert.deepEqual(verify, { ok: true, checked: 0, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("updateProtectedFile accepts changed content only through human authorization", async () => {
   const fixture = await createRepoFixture();
   try {

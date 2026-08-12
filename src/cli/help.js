@@ -74,14 +74,16 @@ const COMMAND_HELP = {
     ]
   },
   remove: {
-    usage: "straight-jacket remove <path> [--json]",
-    summary: "Remove a protected entry from the signed manifest.",
+    usage: "straight-jacket remove <path-or-pattern>... [--json]",
+    summary: "Remove one or more protected entries from the signed manifest.",
     details: [
       "Requires an initialized project and prompts for the human password.",
+      "Accepts multiple paths and quoted glob patterns such as 'scripts/guardrails/*.mjs'.",
       "Does not delete the file itself; it removes Straight Jacket protection for that path."
     ],
     examples: [
-      "straight-jacket remove docs/policy.md"
+      "straight-jacket remove docs/policy.md",
+      "straight-jacket remove 'scripts/guardrails/*.mjs'"
     ]
   },
   rename: {

@@ -109,6 +109,33 @@ test("CLI add accepts multiple paths and glob patterns with one password prompt"
   }
 });
 
+test("CLI add registers every shell-expanded path argument", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+
+    const add = runCli(
+      fixture.repoRoot,
+      ["add", "docs/other.md", "docs/policy.md", "--reason", "Human-owned docs", "--json"],
+      `${PASSWORD}\n`
+    );
+
+    assert.equal(add.status, 0, add.stderr);
+    const addBody = parseJson(add.stdout);
+    assert.equal(addBody.ok, true);
+    assert.deepEqual(addBody.entries.map((entry) => entry.path), [
+      "docs/other.md",
+      "docs/policy.md"
+    ]);
+
+    const verify = runCli(fixture.repoRoot, ["verify", "--json"]);
+    assert.equal(verify.status, 0, verify.stderr);
+    assert.deepEqual(parseJson(verify.stdout), { ok: true, checked: 2, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("CLI verification exits non-zero and emits stable violation JSON when protected content changes", async () => {
   const fixture = await createRepoFixture();
   try {
@@ -192,6 +219,34 @@ test("CLI remove deletes a protected entry only after interactive authorization"
 
     assert.equal(remove.status, 0, remove.stderr);
     assert.deepEqual(parseJson(remove.stdout), { ok: true, removedPath: "docs/policy.md" });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("CLI remove unregisters every protected path matched by a glob pattern", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+    assert.equal(
+      runCli(fixture.repoRoot, ["add", "docs/*.md", "--reason", "Human-owned docs", "--json"], `${PASSWORD}\n`).status,
+      0
+    );
+
+    const remove = runCli(fixture.repoRoot, ["remove", "docs/*.md", "--json"], `${PASSWORD}\n`);
+
+    assert.equal(remove.status, 0, remove.stderr);
+    assert.deepEqual(parseJson(remove.stdout), {
+      ok: true,
+      removedPaths: [
+        "docs/other.md",
+        "docs/policy.md"
+      ]
+    });
+
+    const verify = runCli(fixture.repoRoot, ["verify", "--json"]);
+    assert.equal(verify.status, 0, verify.stderr);
+    assert.deepEqual(parseJson(verify.stdout), { ok: true, checked: 0, violations: [] });
   } finally {
     await fixture.cleanup();
   }

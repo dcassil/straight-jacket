@@ -71,3 +71,23 @@ test("git glob helper expands repository-relative file patterns deterministicall
     await fixture.cleanup();
   }
 });
+
+test("git glob helper expands patterns against any path list deterministically", async () => {
+  const { expandPathPatterns } = await import("../../src/git/glob.js");
+
+  assert.deepEqual(expandPathPatterns(["tools/*"], [
+    "README.md",
+    "tools/a.md",
+    "tools/b.md"
+  ]), [
+    "tools/a.md",
+    "tools/b.md"
+  ]);
+  assert.deepEqual(expandPathPatterns(["tools/a.md", "tools/*"], [
+    "tools/a.md",
+    "tools/b.md"
+  ]), [
+    "tools/a.md",
+    "tools/b.md"
+  ]);
+});

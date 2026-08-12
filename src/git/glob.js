@@ -5,6 +5,11 @@ import { normalizeRepoPath } from "./paths.js";
 const GLOB_MAGIC = /[*?\[]/;
 
 export async function expandRepoPatterns(repoRoot, candidates) {
+  const files = candidates.some(hasGlobMagic) ? await listRepoFiles(repoRoot) : [];
+  return expandPathPatterns(candidates, files);
+}
+
+export function expandPathPatterns(candidates, availablePaths) {
   const expanded = [];
 
   for (const candidate of candidates) {
@@ -14,7 +19,7 @@ export async function expandRepoPatterns(repoRoot, candidates) {
     }
 
     const pattern = normalizeGlobPattern(candidate);
-    const matches = await matchRepoPattern(repoRoot, pattern);
+    const matches = matchPathPattern(availablePaths, pattern);
     if (matches.length === 0) {
       throw new Error(`PATTERN_NO_MATCH: ${candidate}`);
     }
@@ -28,10 +33,9 @@ export function hasGlobMagic(candidate) {
   return typeof candidate === "string" && GLOB_MAGIC.test(candidate);
 }
 
-async function matchRepoPattern(repoRoot, pattern) {
+function matchPathPattern(availablePaths, pattern) {
   const regex = globToRegExp(pattern);
-  const files = await listRepoFiles(repoRoot);
-  return uniqueSorted(files.filter((file) => regex.test(file)));
+  return uniqueSorted(availablePaths.filter((file) => regex.test(file)));
 }
 
 async function listRepoFiles(repoRoot, directory = repoRoot) {

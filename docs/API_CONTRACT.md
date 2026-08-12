@@ -127,7 +127,7 @@ Rules:
 
 ### `removeProtectedFile(input)`
 
-Removes a registered entry.
+Removes one registered entry.
 
 Input:
 
@@ -153,6 +153,36 @@ Rules:
 - requires human authorization
 - fails if the manifest signature is invalid before mutation
 - re-signs the manifest after mutation
+
+### `removeProtectedFiles(input)`
+
+Removes one or more registered entries.
+
+Input:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  paths: ["docs/*.md"],
+  password: "human supplied password"
+}
+```
+
+Expected output:
+
+```js
+{
+  ok: true,
+  removedPaths: ["docs/other.md", "docs/policy.md"]
+}
+```
+
+Rules:
+
+- requires human authorization once
+- expands quoted glob patterns against registered manifest paths
+- removes every matched entry and re-signs the manifest once
+- fails if a literal path is not registered or a pattern matches no registered paths
 
 ### `updateProtectedFile(input)`
 

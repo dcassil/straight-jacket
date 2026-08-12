@@ -1,5 +1,5 @@
 import { normalizeRepoPath } from "../git/paths.js";
-import { expandRepoPatterns } from "../git/glob.js";
+import { expandPathPatterns, expandRepoPatterns } from "../git/glob.js";
 import { createProtectedEntry, sortEntries } from "../manifest/entries.js";
 import { validateEntrySet } from "../manifest/validation.js";
 import { assertAuthorizedSigner } from "../signing/authorization.js";
@@ -69,17 +69,38 @@ export async function addProtectedFiles({ repoRoot, paths, password, reason, now
 }
 
 export async function removeProtectedFile({ repoRoot, path, password, now } = {}) {
-  const protectedPath = normalizeRepoPath(path);
+  const result = await removeProtectedFiles({
+    repoRoot,
+    paths: [path],
+    password,
+    now
+  });
+
+  return {
+    ok: true,
+    removedPath: result.removedPaths[0]
+  };
+}
+
+export async function removeProtectedFiles({ repoRoot, paths, password, now } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw createCodedError("USAGE_ERROR", "remove requires at least one path or pattern");
+  }
+
   const { manifest } = await loadVerifiedManifest(repoRoot);
-  const existingEntry = manifest.entries.find((entry) => entry.path === protectedPath);
-  if (!existingEntry) {
+  const manifestPaths = manifest.entries.map((entry) => entry.path);
+  const protectedPaths = expandPathPatterns(paths, manifestPaths);
+  const manifestPathSet = new Set(manifestPaths);
+  const missingPaths = protectedPaths.filter((protectedPath) => !manifestPathSet.has(protectedPath));
+  if (missingPaths.length > 0) {
     throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
   }
 
   const signer = await assertAuthorizedSigner({ repoRoot, password });
+  const removalSet = new Set(protectedPaths);
   const nextManifest = {
     ...manifest,
-    entries: manifest.entries.filter((entry) => entry.path !== protectedPath)
+    entries: manifest.entries.filter((entry) => !removalSet.has(entry.path))
   };
 
   await signAndWriteManifest({
@@ -92,7 +113,7 @@ export async function removeProtectedFile({ repoRoot, path, password, now } = {}
 
   return {
     ok: true,
-    removedPath: protectedPath
+    removedPaths: protectedPaths
   };
 }
 
