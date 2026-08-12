@@ -82,6 +82,33 @@ test("CLI add/list/verify expose expected machine-readable contract", async () =
   }
 });
 
+test("CLI add accepts multiple paths and glob patterns with one password prompt", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+
+    const add = runCli(
+      fixture.repoRoot,
+      ["add", "docs/*.md", "--reason", "Human-owned docs", "--json"],
+      `${PASSWORD}\n`
+    );
+
+    assert.equal(add.status, 0, add.stderr);
+    const addBody = parseJson(add.stdout);
+    assert.equal(addBody.ok, true);
+    assert.deepEqual(addBody.entries.map((entry) => entry.path), [
+      "docs/other.md",
+      "docs/policy.md"
+    ]);
+
+    const verify = runCli(fixture.repoRoot, ["verify", "--json"]);
+    assert.equal(verify.status, 0, verify.stderr);
+    assert.deepEqual(parseJson(verify.stdout), { ok: true, checked: 2, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("CLI verification exits non-zero and emits stable violation JSON when protected content changes", async () => {
   const fixture = await createRepoFixture();
   try {

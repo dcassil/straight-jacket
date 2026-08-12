@@ -86,6 +86,45 @@ Rules:
 - rejects paths that collide only by case
 - re-signs the manifest after mutation
 
+### `addProtectedFiles(input)`
+
+Registers multiple file paths and/or glob-pattern matches with one authorization and one manifest signature update.
+
+Input:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  paths: ["scripts/guardrails/*.mjs", "docs/policy.md"],
+  password: "human supplied password",
+  reason: "Human-owned files",
+  now: "2026-08-12T00:00:00.000Z"
+}
+```
+
+Expected output:
+
+```js
+{
+  ok: true,
+  entries: [
+    {
+      path: "scripts/guardrails/boundary-check.mjs",
+      checksum: "sha256:..."
+    }
+  ]
+}
+```
+
+Rules:
+
+- prompts/unlocks once at the CLI layer
+- expands quoted glob patterns repo-relative
+- rejects unmatched patterns
+- rejects duplicate or case-colliding paths as one set
+- re-signs the manifest once after all entries are created
+- directory checksums are not supported by the MVP entry shape
+
 ### `removeProtectedFile(input)`
 
 Removes a registered entry.

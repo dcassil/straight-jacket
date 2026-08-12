@@ -93,6 +93,34 @@ test("addProtectedFile registers path, basename, checksum, size, timestamp, reas
   }
 });
 
+test("addProtectedFiles registers multiple paths and glob matches with one authorization", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW });
+
+    const result = await core.addProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: ["docs/*.md"],
+      password: PASSWORD,
+      reason: "Human-owned docs",
+      now: NOW
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.entries.map((entry) => entry.path), [
+      "docs/other.md",
+      "docs/policy.md"
+    ]);
+    assert.equal(result.entries[0].reason, "Human-owned docs");
+
+    const verify = await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" });
+    assert.deepEqual(verify, { ok: true, checked: 2, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("removeProtectedFile requires the human password and re-signs the manifest", async () => {
   const fixture = await createRepoFixture();
   try {

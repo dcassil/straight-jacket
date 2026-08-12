@@ -53,3 +53,21 @@ test("git staged helper reports staged deletions and staged manifest changes", a
     await fixture.cleanup();
   }
 });
+
+test("git glob helper expands repository-relative file patterns deterministically", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const { expandRepoPatterns } = await import("../../src/git/glob.js");
+
+    assert.deepEqual(await expandRepoPatterns(fixture.repoRoot, ["docs/*.md"]), [
+      "docs/other.md",
+      "docs/policy.md"
+    ]);
+    assert.deepEqual(await expandRepoPatterns(fixture.repoRoot, ["docs/policy.md", "docs/*.md"]), [
+      "docs/other.md",
+      "docs/policy.md"
+    ]);
+  } finally {
+    await fixture.cleanup();
+  }
+});

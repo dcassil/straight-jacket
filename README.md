@@ -48,6 +48,7 @@ straight-jacket init --help
 straight-jacket init
 node bin/straight-jacket.mjs list --json
 node bin/straight-jacket.mjs verify --json
+straight-jacket add 'scripts/guardrails/*.mjs' --reason "Guardrail scripts"
 ```
 
 ## Development

@@ -37,7 +37,7 @@ Mutating:
 
 ```text
 straight-jacket init
-straight-jacket add <path> --reason "..."
+straight-jacket add <path-or-pattern>... --reason "..."
 straight-jacket remove <path>
 straight-jacket update <path>
 straight-jacket rename <old-path> <new-path>
@@ -138,15 +138,17 @@ Help behavior:
 
 Inputs:
 
-- path argument
+- one or more path or glob-pattern arguments
 - optional `--reason`
 - `--json`
 
 Behavior:
 
-- prompt for password
-- call `addProtectedFile`
-- print registered entry
+- prompt for password once
+- call `addProtectedFiles`
+- print registered entries
+- quoted patterns such as `scripts/guardrails/*.mjs` are expanded repo-relative
+- directory checksums are not supported yet; protect directory contents with a pattern
 
 ### `list`
 

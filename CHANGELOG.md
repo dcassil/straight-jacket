@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 - 2026-08-12
+
+- Added `addProtectedFiles` for registering multiple paths and glob-pattern matches with one authorization.
+- Updated `straight-jacket add` to accept multiple paths and quoted repo-relative glob patterns.
+- Updated the GitHub Actions verifier workflow to install from the checked-out repository for PR validation.
+- Documented that directory checksums are not supported yet; protect directory contents with file patterns.
+
 ## 0.1.6 - 2026-08-12
 
 - Updated the GitHub Actions verifier workflow to install Straight Jacket from the GitHub release tag.
