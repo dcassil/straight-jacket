@@ -6,9 +6,11 @@
 // no secrets, and never touches private signing material.
 
 import { callTool, listTools } from "../src/mcp.js";
+import { readFileSync } from "node:fs";
 
 const PROTOCOL_VERSION = "2024-11-05";
-const SERVER_INFO = { name: "straight-jacket", version: "0.0.0" };
+const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+const SERVER_INFO = { name: "straight-jacket", version: packageJson.version };
 
 function write(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import test from "node:test";
 import { createRepoFixture, initAndProtect, loadCore, loadMcp, PASSWORD } from "../helpers/repo-fixture.mjs";
+import packageJson from "../../package.json" with { type: "json" };
 
 test("MCP exposes only the required read-first tool surface by default", async () => {
   const mcp = await loadMcp();
@@ -13,6 +16,18 @@ test("MCP exposes only the required read-first tool surface by default", async (
     "straight_jacket_list_protected_files",
     "straight_jacket_verify"
   ]);
+});
+
+test("MCP stdio initialize reports the package version", () => {
+  const result = spawnSync(process.execPath, [path.join(process.cwd(), "bin", "straight-jacket-mcp.mjs")], {
+    input: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} })}\n`,
+    encoding: "utf8"
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const response = JSON.parse(result.stdout.trim());
+  assert.equal(response.result.serverInfo.name, "straight-jacket");
+  assert.equal(response.result.serverInfo.version, packageJson.version);
 });
 
 test("MCP list tool returns protected file metadata without private signing material", async () => {

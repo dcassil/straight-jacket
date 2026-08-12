@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-08-12
+
+- Fixed the MCP stdio server initialize response to report the package version.
+
 ## 0.1.0 - 2026-08-12
 
 - Added the first public Straight Jacket CLI, core library, and read-only MCP server.
