@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7 - 2026-08-12
+
+- Fixed batch `add` coverage for shell-expanded path lists such as `tools/pre-commit-alpha tools/pre-commit-beta`.
+- Added batch `remove` support for multiple exact paths and registered-path glob patterns.
+- Documented the `addProtectedFiles` and `removeProtectedFiles` contracts.
+
 ## 0.1.6 - 2026-08-12
 
 - Updated the GitHub Actions verifier workflow to install Straight Jacket from the GitHub release tag.
