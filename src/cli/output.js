@@ -35,6 +35,10 @@ export function formatError({ json, error }) {
 }
 
 function humanOutput(result) {
+  if (typeof result.help === "string") {
+    return result.help;
+  }
+
   if (result.ok === false && Array.isArray(result.violations)) {
     return result.violations.map((violation) => `${violation.code}: ${violation.message ?? ""}`.trim()).join("\n") + "\n";
   }

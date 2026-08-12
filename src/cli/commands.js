@@ -11,15 +11,23 @@ import {
   verifyRepository
 } from "../index.js";
 import { createCodedError } from "../core/errors.js";
+import { buildHelp } from "./help.js";
 import { parseArgs } from "./parse-args.js";
 import { readPassword, readPasswordConfirmation } from "./prompts.js";
 
-export async function runCommand({ argv, cwd, stdin }) {
+export async function runCommand({ argv, cwd, stdin, stderr }) {
   const parsed = parseArgs(argv);
   const repoRoot = cwd;
 
+  if (parsed.command === "help" || parsed.flags.help) {
+    return {
+      ok: true,
+      help: buildHelp(parsed.command === "help" ? parsed.positional[0] : parsed.command)
+    };
+  }
+
   if (parsed.command === "init") {
-    const { password, confirmation } = await readPasswordConfirmation(stdin);
+    const { password, confirmation } = await readPasswordConfirmation(stdin, stderr);
     if (password !== confirmation) {
       throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Password confirmation did not match");
     }
@@ -30,7 +38,7 @@ export async function runCommand({ argv, cwd, stdin }) {
     return addProtectedFile({
       repoRoot,
       path: requiredPosition(parsed, 0, "add requires a path"),
-      password: await readPassword(stdin),
+      password: await readPassword(stdin, stderr),
       reason: parsed.flags.reason
     });
   }
@@ -66,7 +74,7 @@ export async function runCommand({ argv, cwd, stdin }) {
     return updateProtectedFile({
       repoRoot,
       path: requiredPosition(parsed, 0, "update requires a path"),
-      password: await readPassword(stdin)
+      password: await readPassword(stdin, stderr)
     });
   }
 
@@ -74,7 +82,7 @@ export async function runCommand({ argv, cwd, stdin }) {
     return removeProtectedFile({
       repoRoot,
       path: requiredPosition(parsed, 0, "remove requires a path"),
-      password: await readPassword(stdin)
+      password: await readPassword(stdin, stderr)
     });
   }
 
@@ -83,7 +91,7 @@ export async function runCommand({ argv, cwd, stdin }) {
       repoRoot,
       from: requiredPosition(parsed, 0, "rename requires an old path"),
       to: requiredPosition(parsed, 1, "rename requires a new path"),
-      password: await readPassword(stdin)
+      password: await readPassword(stdin, stderr)
     });
   }
 

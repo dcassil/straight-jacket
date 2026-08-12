@@ -2,6 +2,39 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createRepoFixture, parseJson, PASSWORD, runCli } from "../helpers/repo-fixture.mjs";
 
+test("CLI help flags document setup and command-specific usage", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const noCommand = runCli(fixture.repoRoot, []);
+    assert.equal(noCommand.status, 0, noCommand.stderr);
+    assert.match(noCommand.stdout, /Usage:/);
+    assert.match(noCommand.stdout, /straight-jacket <command> \[options\]/);
+    assert.match(noCommand.stdout, /straight-jacket init/);
+    assert.match(noCommand.stdout, /straight-jacket <command> --help/);
+
+    const longHelp = runCli(fixture.repoRoot, ["--help"]);
+    assert.equal(longHelp.status, 0, longHelp.stderr);
+    assert.match(longHelp.stdout, /Commands:/);
+    assert.match(longHelp.stdout, /Security notes:/);
+
+    const shortHelp = runCli(fixture.repoRoot, ["-h"]);
+    assert.equal(shortHelp.status, 0, shortHelp.stderr);
+    assert.match(shortHelp.stdout, /Straight Jacket protects human-owned repository files/);
+
+    const initHelp = runCli(fixture.repoRoot, ["init", "--help"]);
+    assert.equal(initHelp.status, 0, initHelp.stderr);
+    assert.match(initHelp.stdout, /Usage:\n  straight-jacket init \[--json\]/);
+    assert.match(initHelp.stdout, /Prompts for a human password twice/);
+    assert.match(initHelp.stdout, /Run this from the project root/);
+
+    const initShortHelp = runCli(fixture.repoRoot, ["init", "-h"]);
+    assert.equal(initShortHelp.status, 0, initShortHelp.stderr);
+    assert.match(initShortHelp.stdout, /straight-jacket init \[--json\]/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("CLI init creates repo metadata and returns stable JSON with public verifier fingerprint", async () => {
   const fixture = await createRepoFixture();
   try {

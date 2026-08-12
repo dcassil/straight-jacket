@@ -3,11 +3,32 @@ import { createCodedError } from "../core/errors.js";
 const BOOLEAN_FLAGS = new Set(["json", "staged"]);
 const VALUE_FLAGS = new Set(["reason", "provider", "trusted-public-key-fingerprint"]);
 const FORBIDDEN_PASSWORD_FLAGS = new Set(["password", "password-file"]);
+const HELP_TOKENS = new Set(["--help", "-h"]);
 
 export function parseArgs(argv) {
   const [command, ...tokens] = argv;
   if (!command) {
-    throw createCodedError("USAGE_ERROR", "Command is required");
+    return {
+      command: "help",
+      positional: [],
+      flags: { help: true }
+    };
+  }
+
+  if (command === "help") {
+    return {
+      command: "help",
+      positional: tokens,
+      flags: { help: true }
+    };
+  }
+
+  if (HELP_TOKENS.has(command)) {
+    return {
+      command: "help",
+      positional: [],
+      flags: { help: true }
+    };
   }
 
   const positional = [];
@@ -15,6 +36,11 @@ export function parseArgs(argv) {
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+    if (HELP_TOKENS.has(token)) {
+      flags.help = true;
+      continue;
+    }
+
     if (!token.startsWith("--")) {
       positional.push(token);
       continue;

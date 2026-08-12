@@ -14,6 +14,16 @@ src/cli/
 
 ## Commands
 
+Help:
+
+```text
+straight-jacket
+straight-jacket --help
+straight-jacket -h
+straight-jacket help <command>
+straight-jacket <command> --help
+```
+
 Read-only:
 
 ```text
@@ -82,6 +92,8 @@ Mutating commands requiring signing authority should prompt on stdin/tty:
 - `update`: prompt for password
 - `rename`: prompt for password
 
+Interactive terminal prompts should be visible before waiting for input. Password values should not be accepted through flags, files, environment variables, or chat.
+
 Forbidden:
 
 - `--password`
@@ -108,12 +120,19 @@ If a forbidden password source is provided, fail before touching repo state:
 Inputs:
 
 - `--json`
+- `--help`
 
 Behavior:
 
 - prompt for password twice
 - call `initRepository`
 - print fingerprint and paths
+
+Help behavior:
+
+- `straight-jacket init --help` exits 0
+- prints usage, password prompt expectations, and setup context
+- does not prompt or touch repo state
 
 ### `add`
 

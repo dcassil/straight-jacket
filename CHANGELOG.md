@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 - 2026-08-12
+
+- Added detailed CLI help for top-level usage and each command.
+- Added support for `--help`, `-h`, `help <command>`, and no-argument help output.
+- Added visible interactive terminal prompts for password-based commands.
+
 ## 0.1.3 - 2026-08-12
 
 - Updated MCP config examples to use the installed `straight-jacket-mcp` binary.

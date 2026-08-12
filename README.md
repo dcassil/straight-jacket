@@ -43,6 +43,9 @@ straight-jacket-mcp
 ## CLI
 
 ```sh
+straight-jacket --help
+straight-jacket init --help
+straight-jacket init
 node bin/straight-jacket.mjs list --json
 node bin/straight-jacket.mjs verify --json
 ```

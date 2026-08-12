@@ -4,6 +4,30 @@ import test from "node:test";
 test("CLI parser maps commands, flags, and positionals without reading passwords", async () => {
   const { parseArgs } = await import("../../src/cli/parse-args.js");
 
+  assert.deepEqual(parseArgs([]), {
+    command: "help",
+    positional: [],
+    flags: {
+      help: true
+    }
+  });
+
+  assert.deepEqual(parseArgs(["--help"]), {
+    command: "help",
+    positional: [],
+    flags: {
+      help: true
+    }
+  });
+
+  assert.deepEqual(parseArgs(["init", "--help"]), {
+    command: "init",
+    positional: [],
+    flags: {
+      help: true
+    }
+  });
+
   assert.deepEqual(parseArgs(["add", "docs/policy.md", "--reason", "Human-owned policy file", "--json"]), {
     command: "add",
     positional: ["docs/policy.md"],
@@ -40,6 +64,16 @@ test("CLI output formatter writes JSON only to stdout in JSON mode", async () =>
 
   assert.equal(output.stderr, "");
   assert.equal(output.stdout, '{"ok":false,"violations":[{"code":"CHECKSUM_MISMATCH"}]}\n');
+});
+
+test("CLI help builder includes command usage and setup guidance", async () => {
+  const { buildHelp } = await import("../../src/cli/help.js");
+
+  assert.match(buildHelp(), /straight-jacket init/);
+  assert.match(buildHelp(), /straight-jacket <command> --help/);
+  assert.match(buildHelp(), /Passwords are never accepted through --password/);
+  assert.match(buildHelp("add"), /straight-jacket add <path>/);
+  assert.match(buildHelp("verify"), /--trusted-public-key-fingerprint/);
 });
 
 test("CLI exit-code mapper distinguishes success, verification failure, usage, and authorization", async () => {
