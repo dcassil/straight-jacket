@@ -82,6 +82,46 @@ test("CLI add/list/verify expose expected machine-readable contract", async () =
   }
 });
 
+test("CLI add accepts shell-expanded path lists and remove accepts registered path patterns", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+    await fixture.write("tools/pre-commit-alpha", "#!/bin/sh\n");
+    await fixture.write("tools/pre-commit-beta", "#!/bin/sh\n");
+
+    const add = runCli(
+      fixture.repoRoot,
+      ["add", "tools/pre-commit-alpha", "tools/pre-commit-beta", "--reason", "Hook scripts", "--json"],
+      `${PASSWORD}\n`
+    );
+
+    assert.equal(add.status, 0, add.stderr);
+    const addBody = parseJson(add.stdout);
+    assert.equal(addBody.ok, true);
+    assert.deepEqual(addBody.entries.map((entry) => entry.path), [
+      "tools/pre-commit-alpha",
+      "tools/pre-commit-beta"
+    ]);
+
+    const remove = runCli(fixture.repoRoot, ["remove", "tools/pre-commit-*", "--json"], `${PASSWORD}\n`);
+
+    assert.equal(remove.status, 0, remove.stderr);
+    assert.deepEqual(parseJson(remove.stdout), {
+      ok: true,
+      removedPaths: [
+        "tools/pre-commit-alpha",
+        "tools/pre-commit-beta"
+      ]
+    });
+
+    const verify = runCli(fixture.repoRoot, ["verify", "--json"]);
+    assert.equal(verify.status, 0, verify.stderr);
+    assert.deepEqual(parseJson(verify.stdout), { ok: true, checked: 0, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("CLI verification exits non-zero and emits stable violation JSON when protected content changes", async () => {
   const fixture = await createRepoFixture();
   try {

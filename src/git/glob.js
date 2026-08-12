@@ -24,6 +24,27 @@ export async function expandRepoPatterns(repoRoot, candidates) {
   return uniqueSorted(expanded);
 }
 
+export function expandListedPatterns(candidates, availablePaths) {
+  const expanded = [];
+
+  for (const candidate of candidates) {
+    if (!hasGlobMagic(candidate)) {
+      expanded.push(normalizeRepoPath(candidate));
+      continue;
+    }
+
+    const pattern = normalizeGlobPattern(candidate);
+    const regex = globToRegExp(pattern);
+    const matches = uniqueSorted(availablePaths.filter((availablePath) => regex.test(availablePath)));
+    if (matches.length === 0) {
+      throw new Error(`PATTERN_NO_MATCH: ${candidate}`);
+    }
+    expanded.push(...matches);
+  }
+
+  return uniqueSorted(expanded);
+}
+
 export function hasGlobMagic(candidate) {
   return typeof candidate === "string" && GLOB_MAGIC.test(candidate);
 }

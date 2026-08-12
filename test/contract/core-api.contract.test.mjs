@@ -93,6 +93,50 @@ test("addProtectedFile registers path, basename, checksum, size, timestamp, reas
   }
 });
 
+test("addProtectedFiles registers shell-expanded path lists and removeProtectedFiles removes manifest pattern matches", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW });
+    await fixture.write("tools/pre-commit-alpha", "#!/bin/sh\n");
+    await fixture.write("tools/pre-commit-beta", "#!/bin/sh\n");
+
+    const add = await core.addProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: ["tools/pre-commit-alpha", "tools/pre-commit-beta"],
+      password: PASSWORD,
+      reason: "Hook scripts",
+      now: NOW
+    });
+
+    assert.equal(add.ok, true);
+    assert.deepEqual(add.entries.map((entry) => entry.path), [
+      "tools/pre-commit-alpha",
+      "tools/pre-commit-beta"
+    ]);
+
+    const remove = await core.removeProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: ["tools/pre-commit-*"],
+      password: PASSWORD,
+      now: NOW
+    });
+
+    assert.deepEqual(remove, {
+      ok: true,
+      removedPaths: [
+        "tools/pre-commit-alpha",
+        "tools/pre-commit-beta"
+      ]
+    });
+
+    const verify = await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" });
+    assert.deepEqual(verify, { ok: true, checked: 0, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("removeProtectedFile requires the human password and re-signs the manifest", async () => {
   const fixture = await createRepoFixture();
   try {

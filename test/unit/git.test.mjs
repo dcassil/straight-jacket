@@ -53,3 +53,26 @@ test("git staged helper reports staged deletions and staged manifest changes", a
     await fixture.cleanup();
   }
 });
+
+test("git glob helper expands registered path lists deterministically", async () => {
+  const { expandListedPatterns } = await import("../../src/git/glob.js");
+
+  assert.deepEqual(expandListedPatterns(["tools/pre-commit-*"], [
+    "tools/other",
+    "tools/pre-commit-beta",
+    "tools/pre-commit-alpha"
+  ]), [
+    "tools/pre-commit-alpha",
+    "tools/pre-commit-beta"
+  ]);
+  assert.deepEqual(expandListedPatterns([
+    "tools/pre-commit-alpha",
+    "tools/pre-commit-*"
+  ], [
+    "tools/pre-commit-beta",
+    "tools/pre-commit-alpha"
+  ]), [
+    "tools/pre-commit-alpha",
+    "tools/pre-commit-beta"
+  ]);
+});
