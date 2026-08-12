@@ -1,4 +1,5 @@
 import { normalizeRepoPath } from "../git/paths.js";
+import { expandRepoPatterns } from "../git/glob.js";
 import { createProtectedEntry, sortEntries } from "../manifest/entries.js";
 import { validateEntrySet } from "../manifest/validation.js";
 import { assertAuthorizedSigner } from "../signing/authorization.js";
@@ -6,9 +7,31 @@ import { createCodedError } from "./errors.js";
 import { loadVerifiedManifest, signAndWriteManifest } from "./manifest-state.js";
 
 export async function addProtectedFile({ repoRoot, path, password, reason, now } = {}) {
-  const protectedPath = normalizeRepoPath(path);
+  const result = await addProtectedFiles({
+    repoRoot,
+    paths: [path],
+    password,
+    reason,
+    now
+  });
+
+  return {
+    ok: true,
+    entry: result.entries[0]
+  };
+}
+
+export async function addProtectedFiles({ repoRoot, paths, password, reason, now } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw createCodedError("USAGE_ERROR", "add requires at least one path or pattern");
+  }
+
+  const protectedPaths = await expandRepoPatterns(repoRoot, paths);
   const { manifest } = await loadVerifiedManifest(repoRoot);
-  const entrySetViolations = validateEntrySet([...manifest.entries, { path: protectedPath }]);
+  const entrySetViolations = validateEntrySet([
+    ...manifest.entries,
+    ...protectedPaths.map((protectedPath) => ({ path: protectedPath }))
+  ]);
   if (entrySetViolations.length > 0) {
     throw createCodedError(entrySetViolations[0].code, "Protected path is already registered", {
       violations: entrySetViolations
@@ -16,15 +39,19 @@ export async function addProtectedFile({ repoRoot, path, password, reason, now }
   }
 
   const signer = await assertAuthorizedSigner({ repoRoot, password });
-  const entry = await createProtectedEntry({
-    repoRoot,
-    path: protectedPath,
-    reason,
-    now
-  });
+  const entries = [];
+  for (const protectedPath of protectedPaths) {
+    entries.push(await createProtectedEntry({
+      repoRoot,
+      path: protectedPath,
+      reason,
+      now
+    }));
+  }
+
   const nextManifest = {
     ...manifest,
-    entries: sortEntries([...manifest.entries, entry])
+    entries: sortEntries([...manifest.entries, ...entries])
   };
 
   await signAndWriteManifest({
@@ -37,7 +64,7 @@ export async function addProtectedFile({ repoRoot, path, password, reason, now }
 
   return {
     ok: true,
-    entry
+    entries
   };
 }
 

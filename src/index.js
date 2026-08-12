@@ -4,6 +4,7 @@ export { installHook } from "./core/hooks.js";
 export { listProtectedFiles } from "./core/list-protected-files.js";
 export {
   addProtectedFile,
+  addProtectedFiles,
   removeProtectedFile,
   renameProtectedFile,
   updateProtectedFile

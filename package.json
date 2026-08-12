@@ -44,5 +44,8 @@
   },
   "engines": {
     "node": ">=20.20.0"
+  },
+  "dependencies": {
+    "straight-jacket": "^0.1.5"
   }
 }

@@ -1,5 +1,6 @@
 import {
   addProtectedFile,
+  addProtectedFiles,
   getRepositoryStatus,
   initRepository,
   installCi,
@@ -35,12 +36,23 @@ export async function runCommand({ argv, cwd, stdin, stderr }) {
   }
 
   if (parsed.command === "add") {
-    return addProtectedFile({
+    const paths = allPositions(parsed, "add requires at least one path or pattern");
+    const result = await addProtectedFiles({
       repoRoot,
-      path: requiredPosition(parsed, 0, "add requires a path"),
+      paths,
       password: await readPassword(stdin, stderr),
       reason: parsed.flags.reason
     });
+
+    if (result.entries.length === 1) {
+      return {
+        ok: true,
+        entry: result.entries[0],
+        entries: result.entries
+      };
+    }
+
+    return result;
   }
 
   if (parsed.command === "list") {
@@ -104,4 +116,11 @@ function requiredPosition(parsed, index, message) {
     throw createCodedError("USAGE_ERROR", message);
   }
   return value;
+}
+
+function allPositions(parsed, message) {
+  if (parsed.positional.length === 0) {
+    throw createCodedError("USAGE_ERROR", message);
+  }
+  return parsed.positional;
 }

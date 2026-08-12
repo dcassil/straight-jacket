@@ -13,14 +13,17 @@ const COMMAND_HELP = {
     ]
   },
   add: {
-    usage: "straight-jacket add <path> [--reason <text>] [--json]",
-    summary: "Register a file path and content checksum as human-protected.",
+    usage: "straight-jacket add <path-or-pattern>... [--reason <text>] [--json]",
+    summary: "Register one or more file paths and content checksums as human-protected.",
     details: [
       "Requires an initialized project and prompts for the human password.",
-      "Rejects absolute paths, parent-directory escapes, symlinks, duplicates, and case-only path collisions."
+      "Accepts multiple paths and quoted glob patterns such as 'scripts/guardrails/*.mjs'.",
+      "Rejects absolute paths, parent-directory escapes, symlinks, duplicates, and case-only path collisions.",
+      "Directory checksums are not supported yet; protect files inside a directory with a pattern."
     ],
     examples: [
       "straight-jacket add docs/policy.md --reason \"Human-owned policy file\"",
+      "straight-jacket add 'scripts/guardrails/*.mjs' --reason \"Guardrail scripts\"",
       "straight-jacket add prompts/system.md --json"
     ]
   },
