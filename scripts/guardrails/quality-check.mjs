@@ -9,6 +9,7 @@ const requiredFiles = [
   "docs/GUARDRAILS.md",
   "docs/TEST_STRATEGY.md",
   "docs/features/README.md",
+  
   "docs/features/core-library.md",
   "docs/features/manifest-format.md",
   "docs/features/signing-authorization.md",
