@@ -43,7 +43,7 @@ test("git staged helper reports staged deletions and staged manifest changes", a
     await fixture.write(".straight-jacket/manifest.json", '{"version":1,"entries":[1]}');
     await fixture.write("docs/policy.md", "");
     runGit(fixture.repoRoot, ["add", ".straight-jacket/manifest.json"]);
-    runGit(fixture.repoRoot, ["rm", "docs/policy.md"]);
+    runGit(fixture.repoRoot, ["rm", "-f", "docs/policy.md"]);
 
     const changes = await getStagedChanges(fixture.repoRoot);
 
