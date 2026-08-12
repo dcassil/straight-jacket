@@ -37,6 +37,33 @@ test("initRepository creates signed repo-readable verification metadata without 
   }
 });
 
+test("initRepository refuses to overwrite existing Straight Jacket metadata", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    const first = await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      password: PASSWORD,
+      now: NOW
+    });
+    const manifestBefore = await fixture.file(".straight-jacket/manifest.json");
+    const signatureBefore = await fixture.file(".straight-jacket/manifest.sig");
+    const publicKeyBefore = await fixture.file(".straight-jacket/public-key.json");
+
+    await assert.rejects(
+      () => core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW }),
+      /REPOSITORY_ALREADY_INITIALIZED/
+    );
+
+    assert.equal(await fixture.file(".straight-jacket/manifest.json"), manifestBefore);
+    assert.equal(await fixture.file(".straight-jacket/manifest.sig"), signatureBefore);
+    assert.equal(await fixture.file(".straight-jacket/public-key.json"), publicKeyBefore);
+    assert.equal(first.fingerprint, JSON.parse(publicKeyBefore).fingerprint);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("addProtectedFile registers path, basename, checksum, size, timestamp, reason, and re-signs manifest", async () => {
   const fixture = await createRepoFixture();
   try {

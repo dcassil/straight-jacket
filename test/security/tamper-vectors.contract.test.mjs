@@ -121,6 +121,45 @@ test("detects public verifier replacement when trusted fingerprint is pinned ext
   }
 });
 
+test("detects corrupted manifest JSON without throwing", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await initAndProtect(core, fixture.repoRoot);
+    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "manifest.json"), "{not-json");
+
+    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "MANIFEST_INVALID");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("detects corrupted signature JSON without throwing", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await initAndProtect(core, fixture.repoRoot);
+    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "manifest.sig"), "{not-json");
+
+    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "MANIFEST_SIGNATURE_INVALID");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("detects corrupted public verifier JSON without throwing", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await initAndProtect(core, fixture.repoRoot);
+    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "public-key.json"), "{not-json");
+
+    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "PUBLIC_KEY_INVALID");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("detects duplicate manifest paths", async () => {
   const fixture = await createRepoFixture();
   try {

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertGitRepoRoot } from "../git/repo.js";
 import { canonicalizeJson } from "../manifest/canonical-json.js";
@@ -14,9 +14,11 @@ import {
 import { createSigningKey, exportPublicKey } from "../signing/keys.js";
 import { encryptPrivateKey, writeEncryptedPrivateKey } from "../signing/private-key-store.js";
 import { signPayload } from "../signing/signatures.js";
+import { createCodedError } from "./errors.js";
 
 export async function initRepository({ repoRoot, password, now } = {}) {
   await assertGitRepoRoot(repoRoot);
+  await assertNotInitialized(repoRoot);
   const keyPair = await createSigningKey();
   const publicKey = await exportPublicKey(keyPair);
   const manifest = createEmptyManifest({
@@ -69,4 +71,31 @@ function createEmptyManifest({ repoId, keyId }) {
 
 function createRepoId() {
   return `sha256:${createHash("sha256").update(randomBytes(32)).digest("hex")}`;
+}
+
+async function assertNotInitialized(repoRoot) {
+  const existingPaths = [
+    manifestPath(repoRoot),
+    signaturePath(repoRoot),
+    publicKeyPath(repoRoot),
+    path.join(repoRoot, ".straight-jacket", "local", "private-key.json")
+  ];
+
+  for (const filePath of existingPaths) {
+    if (await pathExists(filePath)) {
+      throw createCodedError("REPOSITORY_ALREADY_INITIALIZED", "Straight Jacket metadata already exists");
+    }
+  }
+}
+
+async function pathExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
 }

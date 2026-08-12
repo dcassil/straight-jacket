@@ -38,11 +38,16 @@ export async function verifyRepository({ repoRoot, scope = "working-tree", trust
     return buildVerificationResult({ checked: 0, violations });
   }
 
-  if (trustedPublicKeyFingerprint && fingerprintPublicKey(publicKey.value) !== trustedPublicKeyFingerprint) {
-    violations.push(createViolation("PUBLIC_KEY_FINGERPRINT_MISMATCH", {
-      expected: trustedPublicKeyFingerprint,
-      actual: fingerprintPublicKey(publicKey.value)
-    }));
+  if (trustedPublicKeyFingerprint) {
+    const actualFingerprint = fingerprintPublicKeyOrNull(publicKey.value);
+    if (actualFingerprint === null) {
+      violations.push(createViolation("PUBLIC_KEY_INVALID"));
+    } else if (actualFingerprint !== trustedPublicKeyFingerprint) {
+      violations.push(createViolation("PUBLIC_KEY_FINGERPRINT_MISMATCH", {
+        expected: trustedPublicKeyFingerprint,
+        actual: actualFingerprint
+      }));
+    }
   }
 
   const manifestViolations = validateManifestShape(manifest.value).map((violation) => createViolation(violation.code, violation));
@@ -93,9 +98,19 @@ async function verifyStagedScope({ repoRoot }) {
     const stagedSignatureText = await readStagedFile(repoRoot, ".straight-jacket/manifest.sig");
     const stagedPublicKeyText = await readStagedFile(repoRoot, ".straight-jacket/public-key.json");
 
-    const stagedSignature = stagedSignatureText ? JSON.parse(stagedSignatureText) : (await readJsonOrViolation(repoRoot, "signature")).value;
-    const stagedPublicKey = stagedPublicKeyText ? JSON.parse(stagedPublicKeyText) : (await readJsonOrViolation(repoRoot, "publicKey")).value;
-    const stagedManifest = JSON.parse(stagedManifestText);
+    const stagedManifest = parseJsonOrNull(stagedManifestText);
+    const stagedSignature = stagedSignatureText ? parseJsonOrNull(stagedSignatureText) : (await readJsonOrViolation(repoRoot, "signature")).value;
+    const stagedPublicKey = stagedPublicKeyText ? parseJsonOrNull(stagedPublicKeyText) : (await readJsonOrViolation(repoRoot, "publicKey")).value;
+    if (!stagedManifest || !stagedSignature || !stagedPublicKey) {
+      violations.push(createViolation("STAGED_MANIFEST_SIGNATURE_INVALID", {
+        path: ".straight-jacket/manifest.json"
+      }));
+      return buildVerificationResult({
+        checked: manifest.value.entries.length,
+        violations
+      });
+    }
+
     const signatureValid = await verifyPayloadSignature({
       payload: canonicalizeJson(stagedManifest),
       signature: stagedSignature,
@@ -166,6 +181,9 @@ async function readJsonOrViolation(repoRoot, kind) {
     if (error.code === "ENOENT") {
       return { violation: createViolation(missingCodeForKind(kind)) };
     }
+    if (error instanceof SyntaxError) {
+      return { violation: createViolation(invalidCodeForKind(kind)) };
+    }
     throw error;
   }
 }
@@ -178,4 +196,30 @@ function missingCodeForKind(kind) {
     return "MANIFEST_SIGNATURE_MISSING";
   }
   return "PUBLIC_KEY_MISSING";
+}
+
+function invalidCodeForKind(kind) {
+  if (kind === "manifest") {
+    return "MANIFEST_INVALID";
+  }
+  if (kind === "signature") {
+    return "MANIFEST_SIGNATURE_INVALID";
+  }
+  return "PUBLIC_KEY_INVALID";
+}
+
+function fingerprintPublicKeyOrNull(publicKey) {
+  try {
+    return fingerprintPublicKey(publicKey);
+  } catch {
+    return null;
+  }
+}
+
+function parseJsonOrNull(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
