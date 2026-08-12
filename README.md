@@ -40,6 +40,12 @@ Codex reads MCP servers from `~/.codex/config.toml`. Merge the snippet in
 straight-jacket-mcp
 ```
 
+## Protect GitHub merges
+
+Local hooks are advisory. For merge enforcement, configure GitHub so `main`
+requires a pull request and the `verify` status check. See
+[`docs/features/github-protection.md`](./docs/features/github-protection.md).
+
 ## CLI
 
 ```sh
