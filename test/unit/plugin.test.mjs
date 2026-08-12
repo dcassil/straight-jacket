@@ -33,6 +33,36 @@ test("plugin MCP manifest references only read-only MCP tools", async () => {
   assert.equal(JSON.stringify(manifest).includes("straight_jacket_capture_password"), false);
 });
 
+test("Claude plugin marketplace manifest points at the root plugin without path traversal", async () => {
+  const pluginManifest = JSON.parse(await readFile(new URL("../../.claude-plugin/plugin.json", import.meta.url), "utf8"));
+  const marketplace = JSON.parse(await readFile(new URL("../../.claude-plugin/marketplace.json", import.meta.url), "utf8"));
+
+  assert.equal(marketplace.name, "straight-jacket");
+  assert.equal(marketplace.owner.name, "Daniel Cassil");
+  assert.equal(marketplace.owner.email, "me@danielcassil.com");
+  assert.equal(marketplace.plugins.length, 1);
+
+  const [plugin] = marketplace.plugins;
+  assert.equal(plugin.name, pluginManifest.name);
+  assert.equal(plugin.version, pluginManifest.version);
+  assert.equal(plugin.source, ".");
+  assert.equal(plugin.source.includes(".."), false);
+  assert.match(plugin.description, /human-protected repo files/);
+});
+
+test("package metadata exposes CLI and MCP executable shims", async () => {
+  const packageJson = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
+  const cliShim = await readFile(new URL("../../bin/straight-jacket.mjs", import.meta.url), "utf8");
+  const mcpShim = await readFile(new URL("../../bin/straight-jacket-mcp.mjs", import.meta.url), "utf8");
+
+  assert.equal(packageJson.bin["straight-jacket"], "bin/straight-jacket.mjs");
+  assert.equal(packageJson.bin["straight-jacket-mcp"], "bin/straight-jacket-mcp.mjs");
+  assert.match(cliShim, /^#!\/usr\/bin\/env node/);
+  assert.match(cliShim, /src\/cli\.js/);
+  assert.match(mcpShim, /^#!\/usr\/bin\/env node/);
+  assert.match(mcpShim, /src\/mcp\.js/);
+});
+
 test("plugin skill template documents first checks and forbidden actions", async () => {
   const template = await readFile(new URL("../../templates/plugin/SKILL.md", import.meta.url), "utf8");
 

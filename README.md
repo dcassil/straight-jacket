@@ -16,12 +16,13 @@ The plugin ships:
 - the `straight-jacket` skill (protected-file editing policy + forbidden bypass actions);
 - the `straight-jacket` CLI.
 
-Manifest: [`.claude-plugin/plugin.json`](./.claude-plugin/plugin.json). Add this
-repo as a plugin from a marketplace or a local path, e.g.:
+Plugin manifest: [`.claude-plugin/plugin.json`](./.claude-plugin/plugin.json).
+Marketplace manifest: [`.claude-plugin/marketplace.json`](./.claude-plugin/marketplace.json).
+Add this repo as a marketplace or a local plugin, e.g.:
 
 ```sh
 /plugin marketplace add dcassil/straight-jacket
-/plugin install straight-jacket
+/plugin install straight-jacket@straight-jacket
 ```
 
 Or reference it directly as a local plugin during development.
