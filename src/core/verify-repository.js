@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
+import { resolveRepoPath } from "../git/paths.js";
+import { scanForChecksum } from "../git/scan.js";
 import { canonicalizeJson } from "../manifest/canonical-json.js";
 import { readManifest, readPublicKey, readSignature } from "../manifest/read-write.js";
 import { validateManifestShape } from "../manifest/validation.js";
@@ -68,7 +70,7 @@ async function verifyWorkingTreeEntries({ repoRoot, entries }) {
 
   for (const entry of entries) {
     try {
-      const filePath = new URL(entry.path, `file://${repoRoot}/`);
+      const filePath = resolveRepoPath(repoRoot, entry.path);
       const stats = await lstat(filePath);
       if (stats.isSymbolicLink()) {
         violations.push(createViolation("SYMLINK_NOT_ALLOWED", { path: entry.path }));
@@ -86,6 +88,12 @@ async function verifyWorkingTreeEntries({ repoRoot, entries }) {
     } catch (error) {
       if (error.code === "ENOENT") {
         violations.push(createViolation("PROTECTED_FILE_MISSING", { path: entry.path }));
+        const likelyMoves = await scanForChecksum(repoRoot, entry.checksum, {
+          ignoredDirectories: [".straight-jacket"]
+        });
+        for (const likelyMove of likelyMoves.filter((match) => match.path !== entry.path)) {
+          violations.push(createViolation("LIKELY_RENAME_OR_MOVE", { path: likelyMove.path, expectedPath: entry.path }));
+        }
         continue;
       }
       throw error;
