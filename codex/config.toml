@@ -1,0 +1,13 @@
+# Straight Jacket — Codex configuration snippet.
+#
+# Codex reads MCP servers from ~/.codex/config.toml. Merge the block below into
+# that file (adjust the path to wherever you cloned/installed straight-jacket),
+# then Codex will expose the read-only Straight Jacket tools.
+#
+#   [mcp_servers.straight-jacket]
+#   command = "node"
+#   args = ["/absolute/path/to/straight-jacket/bin/straight-jacket-mcp.mjs"]
+
+[mcp_servers.straight-jacket]
+command = "node"
+args = ["bin/straight-jacket-mcp.mjs"]

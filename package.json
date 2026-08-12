@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "A tiny MCP, CLI, and plugin for human-protected repo files.",
+  "bin": {
+    "straight-jacket": "bin/straight-jacket.mjs",
+    "straight-jacket-mcp": "bin/straight-jacket-mcp.mjs"
+  },
   "scripts": {
     "test": "node --test test/unit/*.test.mjs test/contract/*.test.mjs test/security/*.test.mjs test/guardrails/*.test.mjs",
     "test:unit": "node --test test/unit/*.test.mjs",

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "straight-jacket": {
+      "command": "node",
+      "args": ["bin/straight-jacket-mcp.mjs"]
+    }
+  }
+}
