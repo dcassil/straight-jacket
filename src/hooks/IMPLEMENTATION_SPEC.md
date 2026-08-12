@@ -33,7 +33,7 @@ Core may wrap these as:
 Required command:
 
 ```text
-straight-jacket verify --staged
+straight-jacket verify && straight-jacket verify --staged
 ```
 
 Required markers:

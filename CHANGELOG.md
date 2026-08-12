@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 - 2026-08-12
+
+- Updated the pre-commit hook to run full working-tree verification before staged verification.
+- This blocks commits while already-protected files are modified, even when the protected change was staged or committed earlier.
+
 ## 0.1.4 - 2026-08-12
 
 - Added detailed CLI help for top-level usage and each command.

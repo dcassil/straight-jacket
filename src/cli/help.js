@@ -96,7 +96,7 @@ const COMMAND_HELP = {
     usage: "straight-jacket install-hook [--json]",
     summary: "Install the advisory local pre-commit hook.",
     details: [
-      "Writes a hook that runs straight-jacket verify --staged.",
+      "Writes a hook that runs straight-jacket verify and straight-jacket verify --staged.",
       "Local hooks are useful friction, not the strong security boundary."
     ],
     examples: [

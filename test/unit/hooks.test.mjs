@@ -18,7 +18,7 @@ test("hook installer writes an idempotent pre-commit hook with stable markers", 
     const hook = await readFile(first.hook.path, "utf8");
     assert.equal((hook.match(/straight-jacket:start/g) ?? []).length, 1);
     assert.equal((hook.match(/straight-jacket:end/g) ?? []).length, 1);
-    assert.match(hook, /straight-jacket verify --staged/);
+    assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
   } finally {
     await fixture.cleanup();
   }
@@ -33,7 +33,7 @@ test("hook status reports advisory local enforcement posture", async () => {
 
     assert.equal(status.installed, false);
     assert.match(status.path, /\.git\/hooks\/pre-commit$/);
-    assert.equal(status.command, "straight-jacket verify --staged");
+    assert.equal(status.command, "straight-jacket verify && straight-jacket verify --staged");
     assert.equal(status.localHookAdvisory, true);
   } finally {
     await fixture.cleanup();

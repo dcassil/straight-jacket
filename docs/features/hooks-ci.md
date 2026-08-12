@@ -43,7 +43,7 @@ Hook content:
 
 ```sh
 #!/bin/sh
-straight-jacket verify --staged
+straight-jacket verify && straight-jacket verify --staged
 ```
 
 Implementation may use an absolute path to the current CLI binary if needed for local development, but package output should prefer the executable on `PATH`.
@@ -84,7 +84,7 @@ Use stable markers for idempotent install:
 
 ```sh
 # straight-jacket:start
-straight-jacket verify --staged
+straight-jacket verify && straight-jacket verify --staged
 # straight-jacket:end
 ```
 
@@ -152,5 +152,5 @@ Future tests:
 
 - existing hook append/idempotency
 - executable bit
-- hook invokes `straight-jacket verify --staged`
+- hook invokes `straight-jacket verify` and `straight-jacket verify --staged`
 - CI template includes external fingerprint guidance

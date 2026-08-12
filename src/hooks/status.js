@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { getGitDir } from "../git/repo.js";
 
-export const PRE_COMMIT_COMMAND = "straight-jacket verify --staged";
+export const PRE_COMMIT_COMMAND = "straight-jacket verify && straight-jacket verify --staged";
 
 export async function getHookStatus({ repoRoot }) {
   const hookPath = await preCommitHookPath(repoRoot);

@@ -185,6 +185,7 @@ Behavior:
 
 - call `installHook`
 - write pre-commit hook template
+- run full verification before staged verification in the hook
 - mark executable
 - do not require password
 

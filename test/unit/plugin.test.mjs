@@ -105,7 +105,7 @@ test("hook and CI templates include staged verification and external fingerprint
   const workflow = await readFile(new URL("../../templates/ci/github-action.yml", import.meta.url), "utf8");
 
   assert.match(hook, /straight-jacket:start/);
-  assert.match(hook, /straight-jacket verify --staged/);
+  assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
   assert.match(hook, /straight-jacket:end/);
   assert.match(workflow, /straight-jacket verify/);
   assert.match(workflow, /STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT/);

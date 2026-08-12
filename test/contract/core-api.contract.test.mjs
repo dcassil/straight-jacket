@@ -246,7 +246,7 @@ test("getRepositoryStatus reports hook health and strong-mode enforcement postur
   }
 });
 
-test("installHook installs an advisory pre-commit hook that runs staged verification", async () => {
+test("installHook installs an advisory pre-commit hook that runs full and staged verification", async () => {
   const fixture = await createRepoFixture();
   try {
     const core = await loadCore();
@@ -258,7 +258,7 @@ test("installHook installs an advisory pre-commit hook that runs staged verifica
     assert.equal(result.hook.installed, true);
     assert.match(result.hook.path, /\.git\/hooks\/pre-commit$/);
     const hook = await readFile(result.hook.path, "utf8");
-    assert.match(hook, /straight-jacket verify --staged/);
+    assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
   } finally {
     await fixture.cleanup();
   }
