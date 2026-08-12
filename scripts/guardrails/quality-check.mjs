@@ -15,7 +15,6 @@ const requiredFiles = [
   "docs/features/git-integration.md",
   "docs/features/cli.md",
   "docs/features/mcp.md",
-  
   "docs/features/hooks-ci.md",
   "docs/features/plugin-skill.md",
   "docs/features/guardrails.md",
