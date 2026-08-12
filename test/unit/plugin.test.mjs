@@ -117,7 +117,7 @@ test("hook and CI templates include staged verification and external fingerprint
   assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
   assert.match(hook, /straight-jacket:end/);
   assert.match(workflow, /straight-jacket verify/);
-  assert.match(workflow, /npm install -g github:dcassil\/straight-jacket#v0\.1\.6/);
+  assert.match(workflow, /npm install -g straight-jacket/);
   assert.match(workflow, /STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT/);
   assert.match(workflow, /\$\{\{ vars\.STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT \}\}/);
 });
