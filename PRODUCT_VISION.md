@@ -1,7 +1,7 @@
 # Straight Jacket Product Vision
 
 ## Summary
-
+ d
 Straight Jacket is a tiny MCP, CLI, and Codex/AI plugin for marking repo-native files as human-protected.
 
 Its purpose is narrow: let a human register a file path plus checksum in a repository so AI tools can read the protection state, but cannot silently update, remove, rename, or bypass that protection. Protected files are still normal files in the repo; Straight Jacket adds a tamper-evident manifest and verification workflow around them.
