@@ -66,6 +66,19 @@ test("package metadata exposes CLI and MCP executable shims", async () => {
   assert.match(mcpShim, /src\/mcp\.js/);
 });
 
+test("MCP config examples use the installed MCP binary", async () => {
+  const mcpConfig = JSON.parse(await readFile(new URL("../../.mcp.json", import.meta.url), "utf8"));
+  const codexConfig = await readFile(new URL("../../codex/config.toml", import.meta.url), "utf8");
+  const readme = await readFile(new URL("../../README.md", import.meta.url), "utf8");
+
+  assert.equal(mcpConfig.mcpServers["straight-jacket"].command, "straight-jacket-mcp");
+  assert.deepEqual(mcpConfig.mcpServers["straight-jacket"].args, []);
+  assert.match(codexConfig, /command = "straight-jacket-mcp"/);
+  assert.match(codexConfig, /args = \[\]/);
+  assert.match(readme, /straight-jacket-mcp/);
+  assert.doesNotMatch(readme, /pointing the `args` path/);
+});
+
 test("plugin skill template documents first checks and forbidden actions", async () => {
   const template = await readFile(new URL("../../templates/plugin/SKILL.md", import.meta.url), "utf8");
   const packagedSkill = await readFile(new URL("../../skills/straight-jacket/SKILL.md", import.meta.url), "utf8");

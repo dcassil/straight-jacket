@@ -30,15 +30,14 @@ Or reference it directly as a local plugin during development.
 ## Use with Codex
 
 Codex reads MCP servers from `~/.codex/config.toml`. Merge the snippet in
-[`codex/config.toml`](./codex/config.toml), pointing the `args` path at your
-local checkout.
+[`codex/config.toml`](./codex/config.toml) after installing the CLI.
 
 ## Use with any MCP client
 
 [`.mcp.json`](./.mcp.json) declares the server for generic MCP hosts:
 
 ```sh
-node bin/straight-jacket-mcp.mjs
+straight-jacket-mcp
 ```
 
 ## CLI

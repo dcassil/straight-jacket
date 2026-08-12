@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 - 2026-08-12
+
+- Updated MCP config examples to use the installed `straight-jacket-mcp` binary.
+
 ## 0.1.2 - 2026-08-12
 
 - Added plugin setup guidance for missing CLI, missing project initialization, incomplete metadata, and disconnected MCP config.
