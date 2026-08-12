@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6 - 2026-08-12
+
+- Updated the GitHub Actions verifier workflow to install Straight Jacket from the GitHub release tag.
+- Wired `STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT` from GitHub Actions repository variables.
+
 ## 0.1.5 - 2026-08-12
 
 - Updated the pre-commit hook to run full working-tree verification before staged verification.
