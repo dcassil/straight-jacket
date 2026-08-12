@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 - 2026-08-12
+
+- Added plugin setup guidance for missing CLI, missing project initialization, incomplete metadata, and disconnected MCP config.
+
 ## 0.1.1 - 2026-08-12
 
 - Fixed the MCP stdio server initialize response to report the package version.

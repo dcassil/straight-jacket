@@ -11,6 +11,9 @@ test("plugin skill policy lists required first checks and forbidden actions", as
     "straight-jacket list --json",
     "straight-jacket verify --json"
   ]);
+  assert.equal(policy.setupGuidance.cliMissing, "npm install -g github:dcassil/straight-jacket");
+  assert.equal(policy.setupGuidance.projectNotInitialized, "straight-jacket init");
+  assert.equal(policy.setupGuidance.mcpNotConnected, "[mcp_servers.straight-jacket]");
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/manifest.json"));
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/manifest.sig"));
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/public-key.json"));
@@ -65,14 +68,23 @@ test("package metadata exposes CLI and MCP executable shims", async () => {
 
 test("plugin skill template documents first checks and forbidden actions", async () => {
   const template = await readFile(new URL("../../templates/plugin/SKILL.md", import.meta.url), "utf8");
+  const packagedSkill = await readFile(new URL("../../skills/straight-jacket/SKILL.md", import.meta.url), "utf8");
 
-  assert.match(template, /straight-jacket list --json/);
-  assert.match(template, /straight-jacket verify --json/);
-  assert.match(template, /edit \.straight-jacket\/manifest\.json/);
-  assert.match(template, /edit \.straight-jacket\/manifest\.sig/);
-  assert.match(template, /edit \.straight-jacket\/public-key\.json/);
-  assert.match(template, /ask user for password in chat/);
-  assert.match(template, /commit with --no-verify to bypass checks/);
+  for (const skillText of [template, packagedSkill]) {
+    assert.match(skillText, /straight-jacket list --json/);
+    assert.match(skillText, /straight-jacket verify --json/);
+    assert.match(skillText, /Setup And Missing Configuration Guidance/);
+    assert.match(skillText, /command -v straight-jacket/);
+    assert.match(skillText, /npm install -g github:dcassil\/straight-jacket/);
+    assert.match(skillText, /Before using Straight Jacket, you need to initialize it in this project/);
+    assert.match(skillText, /straight-jacket init/);
+    assert.match(skillText, /\[mcp_servers\.straight-jacket\]/);
+    assert.match(skillText, /edit \.straight-jacket\/manifest\.json/);
+    assert.match(skillText, /edit \.straight-jacket\/manifest\.sig/);
+    assert.match(skillText, /edit \.straight-jacket\/public-key\.json/);
+    assert.match(skillText, /ask user for password in chat/);
+    assert.match(skillText, /commit with --no-verify to bypass checks/);
+  }
 });
 
 test("hook and CI templates include staged verification and external fingerprint guidance", async () => {

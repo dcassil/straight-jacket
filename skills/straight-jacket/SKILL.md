@@ -24,7 +24,67 @@ straight-jacket list --json
 straight-jacket verify --json
 ```
 
-If the CLI is unavailable, inspect `.straight-jacket/manifest.json` and tell the user verification could not be run.
+If the CLI, MCP tools, or Straight Jacket repo metadata is unavailable, stop and give the user the relevant setup note from "Setup And Missing Configuration Guidance" before continuing.
+
+## Setup And Missing Configuration Guidance
+
+Use these notes whenever setup is missing or incomplete. Do not claim protected state was verified when any prerequisite is missing.
+
+### CLI Missing
+
+Detect this with `command -v straight-jacket`. If the command is unavailable, tell the user:
+
+```text
+Straight Jacket's CLI is not installed on PATH yet. To install it, open a terminal and run:
+
+npm install -g github:dcassil/straight-jacket
+
+Then confirm it works with:
+
+straight-jacket status --json
+```
+
+If a local checkout is available, you may use `node /absolute/path/to/straight-jacket/bin/straight-jacket.mjs ...` only as a temporary fallback and must say that verification used the checkout-local CLI.
+
+### Project Not Initialized
+
+If `.straight-jacket/manifest.json` is missing, tell the user:
+
+```text
+Before using Straight Jacket, you need to initialize it in this project. Open a terminal in the project root and run:
+
+straight-jacket init
+
+After that, register files that should require human authorization:
+
+straight-jacket add <path> --reason "Human-owned file"
+```
+
+Do not run mutating setup commands yourself unless the user explicitly asks you to and the command can prompt the human directly in their terminal.
+
+### Metadata Or Config Incomplete
+
+If `.straight-jacket/manifest.json`, `.straight-jacket/manifest.sig`, or `.straight-jacket/public-key.json` is missing while another one exists, tell the user:
+
+```text
+Straight Jacket metadata is incomplete. Restore the missing `.straight-jacket` files from version control, or if this project has no protected files yet, re-initialize it with:
+
+straight-jacket init
+```
+
+Do not edit Straight Jacket metadata files by hand.
+
+### MCP Not Connected
+
+If the MCP tools are unavailable but the CLI exists, continue with the CLI and tell the user:
+
+```text
+The Straight Jacket MCP server is not connected in this host yet. CLI verification can still run locally. To connect MCP in Codex, add this to `~/.codex/config.toml`:
+
+[mcp_servers.straight-jacket]
+command = "straight-jacket-mcp"
+args = []
+```
 
 ## Protected-File Editing Policy
 
