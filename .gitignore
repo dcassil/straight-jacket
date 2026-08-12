@@ -3,6 +3,6 @@ coverage/
 .DS_Store
 
 # Local human signing material must never be committed.
-.straight-jacket/local/
+# .straight-jacket/local/
 *.sj-private-key
 *.straight-jacket-private-key
