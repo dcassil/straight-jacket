@@ -13,6 +13,7 @@ const requiredFiles = [
   "docs/features/manifest-format.md",
   "docs/features/signing-authorization.md",
   "docs/features/git-integration.md",
+  
   "docs/features/cli.md",
   "docs/features/mcp.md",
   "docs/features/hooks-ci.md",
