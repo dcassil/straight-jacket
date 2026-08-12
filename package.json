@@ -1,0 +1,17 @@
+{
+  "name": "straight-jacket",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A tiny MCP, CLI, and plugin for human-protected repo files.",
+  "scripts": {
+    "test": "node --test test/unit/*.test.mjs test/contract/*.test.mjs test/security/*.test.mjs test/guardrails/*.test.mjs",
+    "test:unit": "node --test test/unit/*.test.mjs",
+    "test:contract": "node --test test/contract/*.test.mjs test/security/*.test.mjs",
+    "test:guardrails": "node --test test/guardrails/*.test.mjs",
+    "guardrails": "node scripts/guardrails/boundary-check.mjs && node scripts/guardrails/coverage-check.mjs && node scripts/guardrails/quality-check.mjs"
+  },
+  "engines": {
+    "node": ">=20.20.0"
+  }
+}
