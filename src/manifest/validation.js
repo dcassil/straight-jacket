@@ -56,8 +56,9 @@ export function validateEntry(entry) {
     return [createManifestViolation("MANIFEST_ENTRY_INVALID")];
   }
 
-  if (!isValidManifestPath(entry.path)) {
-    violations.push(createManifestViolation("PROTECTED_PATH_INVALID", { path: entry.path }));
+  const pathViolationCode = invalidPathCode(entry.path);
+  if (pathViolationCode) {
+    violations.push(createManifestViolation(pathViolationCode, { path: entry.path }));
   } else if (entry.name !== nodePath.posix.basename(entry.path)) {
     violations.push(createManifestViolation("PROTECTED_ENTRY_NAME_INVALID", { path: entry.path }));
   }
@@ -121,17 +122,29 @@ function isPolicyDowngraded(policy) {
   return allowedKeys.some((key) => policy[key] !== MVP_POLICY[key]);
 }
 
-function isValidManifestPath(manifestPath) {
+function invalidPathCode(manifestPath) {
   if (typeof manifestPath !== "string" || manifestPath.length === 0) {
-    return false;
+    return "PROTECTED_PATH_INVALID";
   }
 
-  if (nodePath.isAbsolute(manifestPath) || manifestPath.includes("\\") || manifestPath.split("/").includes("..")) {
-    return false;
+  if (nodePath.isAbsolute(manifestPath)) {
+    return "INVALID_PATH_ABSOLUTE";
+  }
+
+  if (manifestPath.split("/").includes("..")) {
+    return "INVALID_PATH_ESCAPE";
+  }
+
+  if (manifestPath.includes("\\")) {
+    return "PROTECTED_PATH_INVALID";
   }
 
   const normalized = nodePath.posix.normalize(manifestPath);
-  return normalized === manifestPath && normalized !== ".";
+  if (normalized !== manifestPath || normalized === "." || normalized.startsWith("../")) {
+    return "INVALID_PATH_ESCAPE";
+  }
+
+  return null;
 }
 
 function createManifestViolation(code, fields = {}) {

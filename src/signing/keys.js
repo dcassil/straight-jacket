@@ -28,7 +28,7 @@ export function fingerprintPublicKey(publicKeyPayload) {
   const canonicalPublicKey = canonicalizeJson({
     algorithm: publicKeyPayload.algorithm,
     publicKey: publicKeyPayload.publicKey,
-    version: publicKeyPayload.version
+    version: publicKeyPayload.version ?? 1
   });
 
   return `sha256:${createHash("sha256").update(canonicalPublicKey).digest("hex")}`;
