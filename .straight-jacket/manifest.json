@@ -1,13 +1,35 @@
 {
   "version": 1,
-  "repoId": "sha256:6c52f7ebda86363fd1da266d61b5980fe1e421d02e3b295ff001b8d7f58fd29c",
+  "repoId": "sha256:4a972ee2f45a5927bf02f66c05727b641e6b2eeac97b4ce952cb9a97558e838e",
   "hashAlgorithm": "sha256",
   "signatureAlgorithm": "ed25519",
-  "keyId": "sha256:ab9ba5bc9cbe804fc1b6666909e3a404f2f3eeb2e1d6a1f4d819e5fe9db204e3",
+  "keyId": "sha256:d5f107b33f7e2f955db2159f1b699d6c3893f4db4a0c04e37b0d2e3e83a5f42d",
   "policy": {
     "allowSymlinks": false,
     "requireHumanAuthorization": true,
     "failClosed": true
   },
-  "entries": []
+  "entries": [
+    {
+      "path": "scripts/guardrails/boundary-check.mjs",
+      "name": "boundary-check.mjs",
+      "checksum": "sha256:3e2fa3afe78e26194c3e7003afcda09256935f31e626aa436708843073e87bc3",
+      "size": 2032,
+      "registeredAt": "2026-08-13T16:57:01.437Z"
+    },
+    {
+      "path": "scripts/guardrails/coverage-check.mjs",
+      "name": "coverage-check.mjs",
+      "checksum": "sha256:2d9fba014b1c66710b0f5b23e48221e494e8e21333c75cc5706dfa61364ea7a5",
+      "size": 1029,
+      "registeredAt": "2026-08-13T16:57:01.438Z"
+    },
+    {
+      "path": "scripts/guardrails/quality-check.mjs",
+      "name": "quality-check.mjs",
+      "checksum": "sha256:42af6b46ff9bf69e7d489fa46d0acbadd0ca335aa78dfcd31adb283088c8a012",
+      "size": 2844,
+      "registeredAt": "2026-08-13T16:57:01.438Z"
+    }
+  ]
 }

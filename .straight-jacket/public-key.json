@@ -1,7 +1,0 @@
-{
-  "version": 1,
-  "algorithm": "ed25519",
-  "publicKey": "MCowBQYDK2VwAyEAVeIi0oIfPkBey7M_vCSoOj_g0UJ89ncRkWjSEKbfrss",
-  "keyId": "sha256:ab9ba5bc9cbe804fc1b6666909e3a404f2f3eeb2e1d6a1f4d819e5fe9db204e3",
-  "fingerprint": "sha256:ab9ba5bc9cbe804fc1b6666909e3a404f2f3eeb2e1d6a1f4d819e5fe9db204e3"
-}

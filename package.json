@@ -46,6 +46,6 @@
     "node": ">=20.20.0"
   },
   "dependencies": {
-    "straight-jacket": "^0.1.5"
+    "straight-jacket": "^1.0.0"
   }
 }
