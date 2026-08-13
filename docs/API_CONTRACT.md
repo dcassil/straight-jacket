@@ -286,6 +286,46 @@ Rules:
 - preserves path identity
 - re-signs the manifest after mutation
 
+### `updateProtectedFiles(input)`
+
+Accepts the current content of multiple already registered files as the new protected checksums.
+
+Input:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  paths: ["docs/policy.md", "prompts/system.md"],
+  password: "human supplied local password",
+  now: "2026-08-12T00:00:00.000Z"
+}
+```
+
+Expected output:
+
+```js
+{
+  ok: true,
+  entries: [
+    {
+      path: "docs/policy.md",
+      checksum: "sha256:..."
+    },
+    {
+      path: "prompts/system.md",
+      checksum: "sha256:..."
+    }
+  ]
+}
+```
+
+Rules:
+
+- requires human authorization once
+- preserves path identity
+- fails if any path is not registered
+- re-signs the manifest once after all entries are updated
+
 ### `renameProtectedFile(input)`
 
 Authorizes a path change for a protected file.
@@ -524,7 +564,7 @@ straight-jacket init
 straight-jacket setup
 straight-jacket add <path> --reason "..."
 straight-jacket remove <path>
-straight-jacket update <path>
+straight-jacket update <path>...
 straight-jacket rename <old-path> <new-path>
 straight-jacket install-hook
 straight-jacket install-ci

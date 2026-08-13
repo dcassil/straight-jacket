@@ -41,6 +41,7 @@ Public orchestration exports:
 - `addProtectedFile(input)`
 - `removeProtectedFile(input)`
 - `updateProtectedFile(input)`
+- `updateProtectedFiles(input)`
 - `renameProtectedFile(input)`
 - `verifyRepository(input)`
 - `listProtectedFiles(input)`

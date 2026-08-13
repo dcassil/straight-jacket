@@ -248,6 +248,26 @@ test("CLI verification emits actionable human output when protected content chan
   }
 });
 
+test("CLI verification emits one copy-pasteable update command for multiple approved changes", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+    assert.equal(
+      runCli(fixture.repoRoot, ["add", "docs/policy.md", "docs/other.md", "--reason", "Human-owned files", "--json"], `${PASSWORD}\n`).status,
+      0
+    );
+    await fixture.write("docs/policy.md", "# Policy\n\nAI changed this.\n");
+    await fixture.write("docs/other.md", "# Other\n\nAI changed this too.\n");
+
+    const verify = runCli(fixture.repoRoot, ["verify"]);
+
+    assert.notEqual(verify.status, 0);
+    assert.match(verify.stdout, /straight-jacket update docs\/other\.md docs\/policy\.md/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("CLI status reports hook health without claiming local hooks are the strong security boundary", async () => {
   const fixture = await createRepoFixture();
   try {
@@ -289,6 +309,33 @@ test("CLI update accepts changed protected content only after interactive author
     assert.equal(body.ok, true);
     assert.equal(body.entry.path, "docs/policy.md");
     assert.match(body.entry.checksum, /^sha256:/);
+    assert.equal("entries" in body, false);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("CLI update accepts multiple changed protected files with one authorization", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+    assert.equal(
+      runCli(fixture.repoRoot, ["add", "docs/policy.md", "docs/other.md", "--reason", "Human-owned files", "--json"], `${PASSWORD}\n`).status,
+      0
+    );
+    await fixture.write("docs/policy.md", "# Policy\n\nHuman-approved replacement.\n");
+    await fixture.write("docs/other.md", "# Other\n\nHuman-approved replacement.\n");
+
+    const update = runCli(fixture.repoRoot, ["update", "docs/policy.md", "docs/other.md", "--json"], `${PASSWORD}\n`);
+
+    assert.equal(update.status, 0, update.stderr);
+    const body = parseJson(update.stdout);
+    assert.equal(body.ok, true);
+    assert.deepEqual(body.entries.map((entry) => entry.path), ["docs/policy.md", "docs/other.md"]);
+
+    const verify = runCli(fixture.repoRoot, ["verify", "--json"]);
+    assert.equal(verify.status, 0, verify.stderr);
+    assert.deepEqual(parseJson(verify.stdout), { ok: true, checked: 2, violations: [] });
   } finally {
     await fixture.cleanup();
   }

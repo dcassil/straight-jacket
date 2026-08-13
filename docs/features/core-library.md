@@ -28,6 +28,7 @@ Export these async functions from `src/index.js`:
 - `removeProtectedFile(input)`
 - `removeProtectedFiles(input)`
 - `updateProtectedFile(input)`
+- `updateProtectedFiles(input)`
 - `renameProtectedFile(input)`
 - `verifyRepository(input)`
 - `listProtectedFiles(input)`
@@ -216,6 +217,18 @@ Flow:
 5. Replace checksum, size, timestamp.
 6. Preserve path identity and reason unless a future flag changes it.
 7. Re-sign manifest.
+
+### `updateProtectedFiles`
+
+Flow:
+
+1. Load and verify manifest signature.
+2. Find every exact registered path.
+3. Fail if any path is not registered.
+4. Require password authorization once.
+5. Replace checksum, size, timestamp for every matched entry.
+6. Preserve path identity and reason unless a future flag changes it.
+7. Re-sign manifest once.
 
 ### `renameProtectedFile`
 

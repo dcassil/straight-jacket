@@ -97,6 +97,31 @@ test("CLI output formatter gives actionable human verification failures", async 
   assert.match(output.stdout, /straight-jacket update docs\/policy\.md/);
 });
 
+test("CLI output formatter groups approved checksum updates into one command", async () => {
+  const { formatOutput } = await import("../../src/cli/output.js");
+
+  const output = formatOutput({
+    json: false,
+    result: {
+      ok: false,
+      violations: [
+        {
+          code: "CHECKSUM_MISMATCH",
+          path: "docs/policy.md",
+          message: "docs/policy.md checksum changed"
+        },
+        {
+          code: "CHECKSUM_MISMATCH",
+          path: "prompts/system prompt.md",
+          message: "prompts/system prompt.md checksum changed"
+        }
+      ]
+    }
+  });
+
+  assert.match(output.stdout, /straight-jacket update docs\/policy\.md 'prompts\/system prompt\.md'/);
+});
+
 test("CLI output formatter suggests remove and rename commands when applicable", async () => {
   const { formatOutput } = await import("../../src/cli/output.js");
 
