@@ -1,5 +1,5 @@
 import { normalizeRepoPath } from "../git/paths.js";
-import { expandRepoPatterns } from "../git/glob.js";
+import { expandListedPatterns, expandRepoPatterns, hasGlobMagic } from "../git/glob.js";
 import { createProtectedEntry, sortEntries } from "../manifest/entries.js";
 import { validateEntrySet } from "../manifest/validation.js";
 import { assertAuthorizedSigner } from "../signing/authorization.js";
@@ -69,51 +69,36 @@ export async function addProtectedFiles({ repoRoot, paths, password, reason, now
 }
 
 export async function removeProtectedFile({ repoRoot, path, password, now } = {}) {
-  const protectedPath = normalizeRepoPath(path);
-  const { manifest } = await loadVerifiedManifest(repoRoot);
-  const existingEntry = manifest.entries.find((entry) => entry.path === protectedPath);
-  if (!existingEntry) {
-    throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
-  }
-
-  const signer = await assertAuthorizedSigner({ repoRoot, password });
-  const nextManifest = {
-    ...manifest,
-    entries: manifest.entries.filter((entry) => entry.path !== protectedPath)
-  };
-
-  await signAndWriteManifest({
+  const result = await removeProtectedFiles({
     repoRoot,
-    manifest: nextManifest,
-    privateKey: signer.privateKey,
-    keyId: signer.keyId,
+    paths: [path],
+    password,
     now
   });
 
   return {
     ok: true,
-    removedPath: protectedPath
+    removedPath: result.removedPaths[0]
   };
 }
 
-export async function updateProtectedFile({ repoRoot, path, password, now } = {}) {
-  const protectedPath = normalizeRepoPath(path);
+export async function removeProtectedFiles({ repoRoot, paths, password, now } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw createCodedError("USAGE_ERROR", "remove requires at least one path or pattern");
+  }
+
   const { manifest } = await loadVerifiedManifest(repoRoot);
-  const existingEntry = manifest.entries.find((entry) => entry.path === protectedPath);
-  if (!existingEntry) {
-    throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
+  const registeredPaths = new Set(manifest.entries.map((entry) => entry.path));
+  const protectedPaths = removableProtectedPaths(paths, registeredPaths);
+  if (protectedPaths.length === 0) {
+    throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "No registered protected paths matched");
   }
 
   const signer = await assertAuthorizedSigner({ repoRoot, password });
-  const updatedEntry = await createProtectedEntry({
-    repoRoot,
-    path: protectedPath,
-    reason: existingEntry.reason,
-    now
-  });
+  const removedPathSet = new Set(protectedPaths);
   const nextManifest = {
     ...manifest,
-    entries: sortEntries(manifest.entries.map((entry) => entry.path === protectedPath ? updatedEntry : entry))
+    entries: manifest.entries.filter((entry) => !removedPathSet.has(entry.path))
   };
 
   await signAndWriteManifest({
@@ -126,7 +111,85 @@ export async function updateProtectedFile({ repoRoot, path, password, now } = {}
 
   return {
     ok: true,
-    entry: updatedEntry
+    removedPaths: protectedPaths
+  };
+}
+
+function removableProtectedPaths(paths, registeredPaths) {
+  const expanded = [];
+  const registeredPathList = [...registeredPaths];
+
+  for (const candidate of paths) {
+    if (hasGlobMagic(candidate)) {
+      expanded.push(...expandListedPatterns([candidate], registeredPathList));
+      continue;
+    }
+
+    const protectedPath = normalizeRepoPath(candidate);
+    if (registeredPaths.has(protectedPath)) {
+      expanded.push(protectedPath);
+    }
+  }
+
+  return [...new Set(expanded)].sort((left, right) => left.localeCompare(right));
+}
+
+export async function updateProtectedFile({ repoRoot, path, password, now } = {}) {
+  const result = await updateProtectedFiles({
+    repoRoot,
+    paths: [path],
+    password,
+    now
+  });
+
+  return {
+    ok: true,
+    entry: result.entries[0]
+  };
+}
+
+export async function updateProtectedFiles({ repoRoot, paths, password, now } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw createCodedError("USAGE_ERROR", "update requires at least one path");
+  }
+
+  const protectedPaths = [...new Set(paths.map((candidate) => normalizeRepoPath(candidate)))];
+  const { manifest } = await loadVerifiedManifest(repoRoot);
+  const entriesByPath = new Map(manifest.entries.map((entry) => [entry.path, entry]));
+  for (const protectedPath of protectedPaths) {
+    if (!entriesByPath.has(protectedPath)) {
+      throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
+    }
+  }
+
+  const signer = await assertAuthorizedSigner({ repoRoot, password });
+  const updatedEntries = [];
+  for (const protectedPath of protectedPaths) {
+    const existingEntry = entriesByPath.get(protectedPath);
+    updatedEntries.push(await createProtectedEntry({
+      repoRoot,
+      path: protectedPath,
+      reason: existingEntry.reason,
+      now
+    }));
+  }
+  const updatedEntriesByPath = new Map(updatedEntries.map((entry) => [entry.path, entry]));
+  const nextManifest = {
+    ...manifest,
+    entries: sortEntries(manifest.entries.map((entry) => updatedEntriesByPath.get(entry.path) ?? entry))
+  };
+
+  await signAndWriteManifest({
+    repoRoot,
+    manifest: nextManifest,
+    privateKey: signer.privateKey,
+    keyId: signer.keyId,
+    now
+  });
+
+  return {
+    ok: true,
+    entries: updatedEntries
   };
 }
 

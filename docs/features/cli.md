@@ -31,15 +31,17 @@ straight-jacket list --json
 straight-jacket status --json
 straight-jacket verify --json
 straight-jacket verify --staged --json
+straight-jacket setup --check --json
 ```
 
 Mutating:
 
 ```text
 straight-jacket init
-straight-jacket add <path> --reason "..."
-straight-jacket remove <path>
-straight-jacket update <path>
+straight-jacket setup
+straight-jacket add <path-or-pattern>... --reason "..."
+straight-jacket remove <path-or-pattern>...
+straight-jacket update <path>...
 straight-jacket rename <old-path> <new-path>
 straight-jacket install-hook
 straight-jacket install-ci
@@ -87,6 +89,7 @@ Contract tests currently assert only zero vs non-zero. Keep exact numeric codes 
 Mutating commands requiring signing authority should prompt on stdin/tty:
 
 - `init`: prompt for password and confirmation
+- `setup`: prompt for master password plus local password confirmation when registering a clone
 - `add`: prompt for password
 - `remove`: prompt for password
 - `update`: prompt for password
@@ -124,7 +127,7 @@ Inputs:
 
 Behavior:
 
-- prompt for password twice
+- prompt for master password confirmation and local password confirmation
 - call `initRepository`
 - print fingerprint and paths
 
@@ -134,19 +137,51 @@ Help behavior:
 - prints usage, password prompt expectations, and setup context
 - does not prompt or touch repo state
 
+### `setup`
+
+Inputs:
+
+- `--check`
+- `--json`
+
+Behavior:
+
+- in a clean repo, prompt like `init` and initialize Straight Jacket
+- in an initialized clone, verify protected files before prompting
+- prompt for master password, local password, and local confirmation
+- register this checkout's local signer
+- `--check` is read-only and fails when local signer setup is missing
+
 ### `add`
 
 Inputs:
 
-- path argument
+- one or more path or glob-pattern arguments
 - optional `--reason`
 - `--json`
 
 Behavior:
 
-- prompt for password
-- call `addProtectedFile`
-- print registered entry
+- prompt for local password once
+- call `addProtectedFiles`
+- print registered entries
+- accept shell-expanded path lists such as `tools/pre-commit-alpha tools/pre-commit-beta`
+- expand quoted patterns such as `tools/pre-commit-*` repo-relative
+
+### `remove`
+
+Inputs:
+
+- one or more path or glob-pattern arguments
+- `--json`
+
+Behavior:
+
+- prompt for local password once
+- call `removeProtectedFiles`
+- match quoted patterns against registered protected paths
+- remove matching manifest entries without deleting files
+- print `removedPath` for one removed entry and `removedPaths` for multiple removed entries
 
 ### `list`
 
@@ -162,7 +197,7 @@ Inputs:
 
 - `--staged`
 - `--json`
-- future `--trusted-public-key-fingerprint`
+- `--ci-key`
 
 Behavior:
 
@@ -176,6 +211,7 @@ Behavior:
 
 - show manifest health
 - show hook health
+- show local signer setup health
 - show strong-mode reminder
 - never imply local hooks are unbypassable
 
@@ -184,7 +220,8 @@ Behavior:
 Behavior:
 
 - call `installHook`
-- write pre-commit hook template
+- write `.githooks/pre-commit`
+- configure `core.hooksPath` to `.githooks`
 - run full verification before staged verification in the hook
 - mark executable
 - do not require password
@@ -200,7 +237,7 @@ Behavior:
 
 - call `installCi`
 - write `.github/workflows/straight-jacket.yml`
-- include external fingerprint pinning guidance
+- include CI key secret guidance
 - do not require password
 - do not claim branch protection was configured
 

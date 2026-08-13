@@ -19,7 +19,8 @@ Input:
 ```js
 {
   repoRoot: "/absolute/path/to/repo",
-  password: "human supplied password",
+  masterPassword: "human supplied registration password",
+  localPassword: "human supplied local password",
   now: "2026-08-12T00:00:00.000Z"
 }
 ```
@@ -31,8 +32,18 @@ Expected output:
   ok: true,
   manifestPath: "/repo/.straight-jacket/manifest.json",
   signaturePath: "/repo/.straight-jacket/manifest.sig",
-  publicKeyPath: "/repo/.straight-jacket/public-key.json",
-  fingerprint: "sha256:..."
+  signersPath: "/repo/.straight-jacket/signers.json",
+  signersSignaturePath: "/repo/.straight-jacket/signers.sig",
+  registrationPublicKeyPath: "/repo/.straight-jacket/registration-public-key.json",
+  registrationKeyPath: "/repo/.straight-jacket/registration-key.enc.json",
+  ciProofPath: "/repo/.straight-jacket/ci-proof.json",
+  fingerprint: "sha256:...",
+  localSignerKeyId: "sha256:...",
+  ci: {
+    secretName: "STRAIGHT_JACKET_CI_KEY",
+    ciKey: "sjci_v1_...",
+    warning: "Never give an AI agent your master password..."
+  }
 }
 ```
 
@@ -40,10 +51,58 @@ Rules:
 
 - creates `.straight-jacket/manifest.json`
 - creates `.straight-jacket/manifest.sig`
-- creates `.straight-jacket/public-key.json`
-- creates local private signing material outside tracked files, or under `.straight-jacket/local/`
-- never stores the password in repo files
+- creates `.straight-jacket/signers.json`
+- creates `.straight-jacket/signers.sig`
+- creates `.straight-jacket/registration-public-key.json`
+- creates `.straight-jacket/registration-key.enc.json`
+- creates `.straight-jacket/ci-proof.json`
+- creates local private signing material under ignored `.straight-jacket/local/`
+- never stores plaintext passwords in repo files
+- never stores the CI key in repo files
+- the master password unlocks only registration authority
+- the CI key is derived from the master password but cannot unlock signing keys
+- the local password unlocks protected-file mutation authority
 - manifest starts with an empty `entries` array
+
+### `setupRepository(input)`
+
+Initializes a clean repository or registers this checkout's local signer in an already-initialized repository.
+
+Input for an initialized repository:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  masterPassword: "human supplied registration password",
+  localPassword: "new local password",
+  now: "2026-08-12T00:00:00.000Z"
+}
+```
+
+Expected registration output:
+
+```js
+{
+  ok: true,
+  registered: true,
+  signerKeyId: "sha256:...",
+  ci: {
+    secretName: "STRAIGHT_JACKET_CI_KEY",
+    ciKey: "sjci_v1_..."
+  }
+}
+```
+
+Rules:
+
+- verifies protected files before prompting for registration authority at the CLI layer
+- returns verification violations and does not write local signing material when locked files are dirty
+- unlocks `.straight-jacket/registration-key.enc.json` with the master password
+- writes only this checkout's encrypted local signer under `.straight-jacket/local/`
+- appends the new signer to `.straight-jacket/signers.json` and re-signs it with the registration key
+- updates `.straight-jacket/ci-proof.json` because signer registry changes are registration metadata changes
+- upgrades legacy `.straight-jacket/public-key.json` repositories after verifying protected files
+- `checkRepositorySetup` is read-only and reports whether the local encrypted signer matches an active signer
 
 ### `addProtectedFile(input)`
 
@@ -55,7 +114,7 @@ Input:
 {
   repoRoot: "/absolute/path/to/repo",
   path: "docs/policy.md",
-  password: "human supplied password",
+  password: "human supplied local password",
   reason: "Human-owned policy file",
   now: "2026-08-12T00:00:00.000Z"
 }
@@ -86,6 +145,49 @@ Rules:
 - rejects paths that collide only by case
 - re-signs the manifest after mutation
 
+### `addProtectedFiles(input)`
+
+Registers multiple file paths and/or glob-pattern matches with one authorization and one manifest signature update.
+
+Input:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  paths: ["tools/pre-commit-alpha", "tools/pre-commit-beta"],
+  password: "human supplied local password",
+  reason: "Hook scripts",
+  now: "2026-08-12T00:00:00.000Z"
+}
+```
+
+Expected output:
+
+```js
+{
+  ok: true,
+  entries: [
+    {
+      path: "tools/pre-commit-alpha",
+      checksum: "sha256:..."
+    },
+    {
+      path: "tools/pre-commit-beta",
+      checksum: "sha256:..."
+    }
+  ]
+}
+```
+
+Rules:
+
+- accepts shell-expanded path lists such as `tools/pre-commit-alpha tools/pre-commit-beta`
+- expands quoted glob patterns repo-relative
+- prompts/unlocks once at the CLI layer
+- rejects unmatched patterns
+- rejects duplicate or case-colliding paths as one set
+- re-signs the manifest once after all entries are created
+
 ### `removeProtectedFile(input)`
 
 Removes a registered entry.
@@ -96,7 +198,7 @@ Input:
 {
   repoRoot: "/absolute/path/to/repo",
   path: "docs/policy.md",
-  password: "human supplied password"
+  password: "human supplied local password"
 }
 ```
 
@@ -115,6 +217,42 @@ Rules:
 - fails if the manifest signature is invalid before mutation
 - re-signs the manifest after mutation
 
+### `removeProtectedFiles(input)`
+
+Removes multiple registered entries by exact path and/or glob pattern with one authorization and one manifest signature update.
+
+Input:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  paths: ["tools/pre-commit-*"],
+  password: "human supplied local password"
+}
+```
+
+Expected output:
+
+```js
+{
+  ok: true,
+  removedPaths: [
+    "tools/pre-commit-alpha",
+    "tools/pre-commit-beta"
+  ]
+}
+```
+
+Rules:
+
+- matches patterns against registered manifest paths, not the working tree
+- accepts shell-expanded path lists and quoted glob patterns
+- requires human authorization once
+- ignores unregistered exact paths when at least one registered path matches, which allows shell-expanded broader globs to include unrelated files
+- fails if no registered protected path matches
+- fails if a pattern does not match any registered protected path
+- re-signs the manifest once after all matching entries are removed
+
 ### `updateProtectedFile(input)`
 
 Accepts the current content of an already registered file as the new protected checksum.
@@ -125,7 +263,7 @@ Input:
 {
   repoRoot: "/absolute/path/to/repo",
   path: "docs/policy.md",
-  password: "human supplied password",
+  password: "human supplied local password",
   now: "2026-08-12T00:00:00.000Z"
 }
 ```
@@ -148,6 +286,46 @@ Rules:
 - preserves path identity
 - re-signs the manifest after mutation
 
+### `updateProtectedFiles(input)`
+
+Accepts the current content of multiple already registered files as the new protected checksums.
+
+Input:
+
+```js
+{
+  repoRoot: "/absolute/path/to/repo",
+  paths: ["docs/policy.md", "prompts/system.md"],
+  password: "human supplied local password",
+  now: "2026-08-12T00:00:00.000Z"
+}
+```
+
+Expected output:
+
+```js
+{
+  ok: true,
+  entries: [
+    {
+      path: "docs/policy.md",
+      checksum: "sha256:..."
+    },
+    {
+      path: "prompts/system.md",
+      checksum: "sha256:..."
+    }
+  ]
+}
+```
+
+Rules:
+
+- requires human authorization once
+- preserves path identity
+- fails if any path is not registered
+- re-signs the manifest once after all entries are updated
+
 ### `renameProtectedFile(input)`
 
 Authorizes a path change for a protected file.
@@ -159,7 +337,7 @@ Input:
   repoRoot: "/absolute/path/to/repo",
   from: "docs/policy.md",
   to: "docs/policy-renamed.md",
-  password: "human supplied password",
+  password: "human supplied local password",
   now: "2026-08-12T00:00:00.000Z"
 }
 ```
@@ -227,7 +405,7 @@ Rules:
 - never asks for a password
 - fails closed for missing, unsigned, ambiguous, or tampered state
 - supports `scope: "working-tree"` and `scope: "staged"`
-- may accept `trustedPublicKeyFingerprint` for externally pinned strong-mode verification
+- may accept `ciKey` for CI proof verification against committed registration metadata
 - may accept `skipSignatureForDiagnostics` only from core-level tests/internal diagnostics; CLI, MCP, hooks, and plugin surfaces must never expose it
 
 ### `listProtectedFiles(input)`
@@ -284,7 +462,13 @@ Expected output:
   ok: true,
   hook: {
     installed: false,
-    path: "/repo/.git/hooks/pre-commit"
+    path: "/repo/.githooks/pre-commit",
+    hooksPath: ".githooks",
+    configuredHooksPath: null
+  },
+  setup: {
+    localSignerRegistered: true,
+    signerKeyId: "sha256:..."
   },
   enforcement: {
     localHookAdvisory: true,
@@ -300,7 +484,7 @@ Rules:
 
 ### `installHook(input)`
 
-Installs or updates the local pre-commit hook.
+Installs or updates the committed pre-commit hook path.
 
 Input:
 
@@ -317,7 +501,9 @@ Expected output:
   ok: true,
   hook: {
     installed: true,
-    path: "/repo/.git/hooks/pre-commit"
+    path: "/repo/.githooks/pre-commit",
+    hooksPath: ".githooks",
+    configuredHooksPath: ".githooks"
   }
 }
 ```
@@ -325,7 +511,8 @@ Expected output:
 Rules:
 
 - does not require a password
-- installs a hook that runs `straight-jacket verify --staged`
+- writes `.githooks/pre-commit` and configures `core.hooksPath` to `.githooks`
+- installs a hook that runs `straight-jacket setup --check`, `straight-jacket verify`, and `straight-jacket verify --staged`
 - remains advisory unless paired with CI or server-side enforcement
 
 ### `installCi(input)`
@@ -354,7 +541,7 @@ Expected output:
 Rules:
 
 - does not require a password
-- must document external public-key fingerprint pinning for strong mode
+- must document `STRAIGHT_JACKET_CI_KEY` setup for strong mode
 - must not silently configure repository branch protection
 
 ## CLI
@@ -374,9 +561,10 @@ Mutating commands:
 
 ```text
 straight-jacket init
+straight-jacket setup
 straight-jacket add <path> --reason "..."
 straight-jacket remove <path>
-straight-jacket update <path>
+straight-jacket update <path>...
 straight-jacket rename <old-path> <new-path>
 straight-jacket install-hook
 straight-jacket install-ci
@@ -386,7 +574,9 @@ Rules:
 
 - read-only commands exit `0` on success
 - verification exits non-zero on violations
-- manifest-mutating commands require interactive human authorization
+- `init` prompts for master and local passwords
+- `setup` prompts for the master password and a new local password when registering a clone
+- manifest-mutating commands require the local password
 - `install-hook` and `install-ci` do not mutate the signed manifest and do not require a password
 - mutating commands must not accept passwords from repo files
 - JSON mode emits machine-readable output with stable `ok`, `violations`, and `entries` fields

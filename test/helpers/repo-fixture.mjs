@@ -5,6 +5,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 export const PASSWORD = "correct horse battery staple";
+export const MASTER_PASSWORD = "correct horse master staple";
+export const LOCAL_PASSWORD = "correct horse local staple";
 export const NOW = "2026-08-12T00:00:00.000Z";
 
 export async function createRepoFixture() {
