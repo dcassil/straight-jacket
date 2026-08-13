@@ -41,7 +41,7 @@ straight-jacket init
 straight-jacket setup
 straight-jacket add <path-or-pattern>... --reason "..."
 straight-jacket remove <path-or-pattern>...
-straight-jacket update <path>
+straight-jacket update <path>...
 straight-jacket rename <old-path> <new-path>
 straight-jacket install-hook
 straight-jacket install-ci

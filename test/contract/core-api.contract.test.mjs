@@ -506,6 +506,53 @@ test("updateProtectedFile accepts changed content only through human authorizati
   }
 });
 
+test("updateProtectedFiles accepts multiple changed files with one authorization", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await initAndProtect(core, fixture.repoRoot);
+    await core.addProtectedFile({
+      repoRoot: fixture.repoRoot,
+      path: "docs/other.md",
+      password: PASSWORD,
+      reason: "Human-owned companion file",
+      now: NOW
+    });
+    await fixture.write("docs/policy.md", "# Policy\n\nHuman-approved replacement.\n");
+    await fixture.write("docs/other.md", "# Other\n\nHuman-approved replacement.\n");
+
+    const beforeUpdate = await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" });
+    expectViolation(beforeUpdate, "CHECKSUM_MISMATCH", "docs/policy.md");
+    expectViolation(beforeUpdate, "CHECKSUM_MISMATCH", "docs/other.md");
+
+    await assert.rejects(
+      () => core.updateProtectedFiles({
+        repoRoot: fixture.repoRoot,
+        paths: ["docs/policy.md", "docs/other.md"],
+        password: "wrong",
+        now: NOW
+      }),
+      /AUTHORIZATION_REQUIRED|INVALID_PASSWORD|SIGNING_FAILED/
+    );
+
+    const result = await core.updateProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: ["docs/policy.md", "docs/other.md"],
+      password: PASSWORD,
+      now: NOW
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.entries.map((entry) => entry.path), ["docs/policy.md", "docs/other.md"]);
+    assert.ok(result.entries.every((entry) => /^sha256:[a-f0-9]{64}$/.test(entry.checksum)));
+
+    const afterUpdate = await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" });
+    assert.deepEqual(afterUpdate, { ok: true, checked: 2, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("renameProtectedFile is the only valid path-change flow", async () => {
   const fixture = await createRepoFixture();
   try {

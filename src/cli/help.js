@@ -79,14 +79,16 @@ const COMMAND_HELP = {
     ]
   },
   update: {
-    usage: "straight-jacket update <path> [--json]",
-    summary: "Accept the current content of a protected file as the new authorized checksum.",
+    usage: "straight-jacket update <path>... [--json]",
+    summary: "Accept the current content of one or more protected files as the new authorized checksums.",
     details: [
       "Requires an initialized project and prompts for the local password.",
+      "Accepts multiple registered paths and re-signs the manifest once.",
       "Use only after the human approves the protected file content change."
     ],
     examples: [
-      "straight-jacket update docs/policy.md"
+      "straight-jacket update docs/policy.md",
+      "straight-jacket update docs/policy.md prompts/system.md"
     ]
   },
   remove: {

@@ -90,9 +90,7 @@ function humanVerificationFailure(violations) {
     lines.push("Human authorization required:");
     if (updatePaths.length > 0) {
       lines.push("If the protected content changes are approved, a human needs to run:");
-      for (const protectedPath of updatePaths) {
-        lines.push(`  straight-jacket update ${shellQuote(protectedPath)}`);
-      }
+      lines.push(`  straight-jacket update ${updatePaths.map(shellQuote).join(" ")}`);
     }
     if (removePaths.length > 0) {
       lines.push("If the protected files were intentionally removed, a human needs to run:");

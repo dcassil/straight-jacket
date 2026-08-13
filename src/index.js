@@ -9,7 +9,8 @@ export {
   removeProtectedFile,
   removeProtectedFiles,
   renameProtectedFile,
-  updateProtectedFile
+  updateProtectedFile,
+  updateProtectedFiles
 } from "./core/protected-files.js";
 export { getRepositoryStatus } from "./core/status.js";
 export { verifyRepository } from "./core/verify-repository.js";

@@ -135,23 +135,48 @@ function removableProtectedPaths(paths, registeredPaths) {
 }
 
 export async function updateProtectedFile({ repoRoot, path, password, now } = {}) {
-  const protectedPath = normalizeRepoPath(path);
+  const result = await updateProtectedFiles({
+    repoRoot,
+    paths: [path],
+    password,
+    now
+  });
+
+  return {
+    ok: true,
+    entry: result.entries[0]
+  };
+}
+
+export async function updateProtectedFiles({ repoRoot, paths, password, now } = {}) {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw createCodedError("USAGE_ERROR", "update requires at least one path");
+  }
+
+  const protectedPaths = [...new Set(paths.map((candidate) => normalizeRepoPath(candidate)))];
   const { manifest } = await loadVerifiedManifest(repoRoot);
-  const existingEntry = manifest.entries.find((entry) => entry.path === protectedPath);
-  if (!existingEntry) {
-    throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
+  const entriesByPath = new Map(manifest.entries.map((entry) => [entry.path, entry]));
+  for (const protectedPath of protectedPaths) {
+    if (!entriesByPath.has(protectedPath)) {
+      throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
+    }
   }
 
   const signer = await assertAuthorizedSigner({ repoRoot, password });
-  const updatedEntry = await createProtectedEntry({
-    repoRoot,
-    path: protectedPath,
-    reason: existingEntry.reason,
-    now
-  });
+  const updatedEntries = [];
+  for (const protectedPath of protectedPaths) {
+    const existingEntry = entriesByPath.get(protectedPath);
+    updatedEntries.push(await createProtectedEntry({
+      repoRoot,
+      path: protectedPath,
+      reason: existingEntry.reason,
+      now
+    }));
+  }
+  const updatedEntriesByPath = new Map(updatedEntries.map((entry) => [entry.path, entry]));
   const nextManifest = {
     ...manifest,
-    entries: sortEntries(manifest.entries.map((entry) => entry.path === protectedPath ? updatedEntry : entry))
+    entries: sortEntries(manifest.entries.map((entry) => updatedEntriesByPath.get(entry.path) ?? entry))
   };
 
   await signAndWriteManifest({
@@ -164,7 +189,7 @@ export async function updateProtectedFile({ repoRoot, path, password, now } = {}
 
   return {
     ok: true,
-    entry: updatedEntry
+    entries: updatedEntries
   };
 }
 

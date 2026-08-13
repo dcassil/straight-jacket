@@ -11,7 +11,7 @@ import {
   removeProtectedFiles,
   renameProtectedFile,
   setupRepository,
-  updateProtectedFile,
+  updateProtectedFiles,
   verifyRepository
 } from "../index.js";
 import { createCodedError } from "../core/errors.js";
@@ -110,11 +110,21 @@ export async function runCommand({ argv, cwd, stdin, stderr }) {
   }
 
   if (parsed.command === "update") {
-    return updateProtectedFile({
+    const paths = allPositions(parsed, "update requires at least one path");
+    const result = await updateProtectedFiles({
       repoRoot,
-      path: requiredPosition(parsed, 0, "update requires a path"),
+      paths,
       password: await readPassword(stdin, stderr)
     });
+
+    if (result.entries.length === 1) {
+      return {
+        ok: true,
+        entry: result.entries[0]
+      };
+    }
+
+    return result;
   }
 
   if (parsed.command === "remove") {
