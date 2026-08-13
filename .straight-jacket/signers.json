@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "repoId": "sha256:4a972ee2f45a5927bf02f66c05727b641e6b2eeac97b4ce952cb9a97558e838e",
+  "registrationKeyId": "sha256:deea3c1397ed11bfbfd4d48e956664cf1e24d57de8f28fe0f072b2acf9b42465",
+  "signers": [
+    {
+      "version": 1,
+      "algorithm": "ed25519",
+      "keyId": "sha256:d5f107b33f7e2f955db2159f1b699d6c3893f4db4a0c04e37b0d2e3e83a5f42d",
+      "fingerprint": "sha256:d5f107b33f7e2f955db2159f1b699d6c3893f4db4a0c04e37b0d2e3e83a5f42d",
+      "publicKey": "MCowBQYDK2VwAyEAjkYWWkqDNOuUEasnP9xmeMTP3zzLP2mqX8V5RhJmtwo",
+      "registeredAt": "2026-08-13T16:55:32.870Z",
+      "active": true
+    }
+  ]
+}

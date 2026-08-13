@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "algorithm": "hmac-sha256",
+  "keyDerivation": {
+    "name": "scrypt",
+    "salt": "straight-jacket-ci-v1",
+    "cost": 16384,
+    "blockSize": 8,
+    "parallelization": 1,
+    "keyLength": 32
+  },
+  "covered": [
+    "registration-public-key",
+    "registration-key",
+    "signers",
+    "signers-signature"
+  ],
+  "proof": "sha256:6d7cc761342c0d623076bb6ac53e640f5816283ee6995c7828cf63dacedad422"
+}
