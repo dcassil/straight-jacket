@@ -100,7 +100,7 @@ test("detects registration public verifier deletion", async () => {
   }
 });
 
-test("detects registration public verifier replacement when trusted fingerprint is pinned externally", async () => {
+test("detects registration public verifier replacement when CI proof verification is enabled", async () => {
   const fixture = await createRepoFixture();
   try {
     const core = await loadCore();
@@ -112,9 +112,9 @@ test("detects registration public verifier replacement when trusted fingerprint 
       await core.verifyRepository({
         repoRoot: fixture.repoRoot,
         scope: "working-tree",
-        trustedPublicKeyFingerprint: init.fingerprint
+        ciKey: init.ci.ciKey
       }),
-      "PUBLIC_KEY_FINGERPRINT_MISMATCH"
+      "SIGNERS_SIGNATURE_INVALID"
     );
   } finally {
     await fixture.cleanup();

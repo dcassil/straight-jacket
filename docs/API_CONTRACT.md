@@ -36,8 +36,14 @@ Expected output:
   signersSignaturePath: "/repo/.straight-jacket/signers.sig",
   registrationPublicKeyPath: "/repo/.straight-jacket/registration-public-key.json",
   registrationKeyPath: "/repo/.straight-jacket/registration-key.enc.json",
+  ciProofPath: "/repo/.straight-jacket/ci-proof.json",
   fingerprint: "sha256:...",
-  localSignerKeyId: "sha256:..."
+  localSignerKeyId: "sha256:...",
+  ci: {
+    secretName: "STRAIGHT_JACKET_CI_KEY",
+    ciKey: "sjci_v1_...",
+    warning: "Never give an AI agent your master password..."
+  }
 }
 ```
 
@@ -49,9 +55,12 @@ Rules:
 - creates `.straight-jacket/signers.sig`
 - creates `.straight-jacket/registration-public-key.json`
 - creates `.straight-jacket/registration-key.enc.json`
+- creates `.straight-jacket/ci-proof.json`
 - creates local private signing material under ignored `.straight-jacket/local/`
 - never stores plaintext passwords in repo files
+- never stores the CI key in repo files
 - the master password unlocks only registration authority
+- the CI key is derived from the master password but cannot unlock signing keys
 - the local password unlocks protected-file mutation authority
 - manifest starts with an empty `entries` array
 
@@ -76,7 +85,11 @@ Expected registration output:
 {
   ok: true,
   registered: true,
-  signerKeyId: "sha256:..."
+  signerKeyId: "sha256:...",
+  ci: {
+    secretName: "STRAIGHT_JACKET_CI_KEY",
+    ciKey: "sjci_v1_..."
+  }
 }
 ```
 
@@ -87,6 +100,8 @@ Rules:
 - unlocks `.straight-jacket/registration-key.enc.json` with the master password
 - writes only this checkout's encrypted local signer under `.straight-jacket/local/`
 - appends the new signer to `.straight-jacket/signers.json` and re-signs it with the registration key
+- updates `.straight-jacket/ci-proof.json` because signer registry changes are registration metadata changes
+- upgrades legacy `.straight-jacket/public-key.json` repositories after verifying protected files
 - `checkRepositorySetup` is read-only and reports whether the local encrypted signer matches an active signer
 
 ### `addProtectedFile(input)`
@@ -350,7 +365,7 @@ Rules:
 - never asks for a password
 - fails closed for missing, unsigned, ambiguous, or tampered state
 - supports `scope: "working-tree"` and `scope: "staged"`
-- may accept `trustedPublicKeyFingerprint` for externally pinned registration-public-key verification
+- may accept `ciKey` for CI proof verification against committed registration metadata
 - may accept `skipSignatureForDiagnostics` only from core-level tests/internal diagnostics; CLI, MCP, hooks, and plugin surfaces must never expose it
 
 ### `listProtectedFiles(input)`
@@ -486,7 +501,7 @@ Expected output:
 Rules:
 
 - does not require a password
-- must document external registration-public-key fingerprint pinning for strong mode
+- must document `STRAIGHT_JACKET_CI_KEY` setup for strong mode
 - must not silently configure repository branch protection
 
 ## CLI

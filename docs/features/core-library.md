@@ -46,7 +46,7 @@ Shared fields:
 - `repoRoot`: absolute path to a Git repository root
 - `now`: ISO timestamp override for deterministic tests
 - `scope`: `"working-tree"` or `"staged"` for verification
-- `trustedPublicKeyFingerprint`: optional external registration public-key trust pin for strong-mode verification
+- `ciKey`: optional CI-only key for verifying committed registration metadata
 
 Mutating fields:
 
@@ -144,12 +144,13 @@ Idempotency:
 Flow:
 
 1. If the repo is not initialized, delegate to `initRepository`.
-2. Verify working-tree protected files and shared metadata.
-3. Return verification violations without writing local signing material if locked files are dirty.
-4. Unlock registration key with `masterPassword`.
-5. Generate and encrypt a new local signer with `localPassword`.
-6. Add the signer public key to `.straight-jacket/signers.json`.
-7. Re-sign signer registry with the registration key.
+2. If legacy `.straight-jacket/public-key.json` metadata exists, verify protected files and upgrade to signer registry plus CI proof metadata.
+3. Verify working-tree protected files and shared metadata.
+4. Return verification violations without writing local signing material if locked files are dirty.
+5. Unlock registration key with `masterPassword`.
+6. Generate and encrypt a new local signer with `localPassword`.
+7. Add the signer public key to `.straight-jacket/signers.json`.
+8. Re-sign signer registry with the registration key.
 
 ### `addProtectedFile`
 
@@ -236,7 +237,7 @@ Flow:
 
 1. Load manifest, manifest signature, signer registry, signer-registry signature, and registration public key.
 2. If any are missing, return fail-closed violation.
-3. If external fingerprint is provided, verify registration public-key fingerprint first.
+3. If a CI key is provided, verify the committed CI proof against registration metadata.
 4. Validate manifest shape, policy, and signer registry.
 5. Verify signer registry signature.
 6. Verify manifest signature against the active registered signer unless diagnostic mode is explicitly requested.
@@ -281,7 +282,7 @@ Diagnostic mode:
 
 - create `.github/workflows/straight-jacket.yml` for `provider: "github-actions"`
 - include `straight-jacket verify`
-- include guidance or command wiring for `STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT`
+- include guidance or command wiring for `STRAIGHT_JACKET_CI_KEY`
 - never require a password
 - never claim it configured branch protection automatically
 
@@ -295,7 +296,8 @@ Core should centralize violation codes:
 - `REGISTRATION_PUBLIC_KEY_MISSING`
 - `SIGNERS_MISSING`
 - `SIGNERS_SIGNATURE_INVALID`
-- `PUBLIC_KEY_FINGERPRINT_MISMATCH`
+- `CI_PROOF_INVALID`
+- `CI_PROOF_MISSING`
 - `HASH_ALGORITHM_NOT_ALLOWED`
 - `POLICY_DOWNGRADE_NOT_ALLOWED`
 - `INVALID_PATH_ABSOLUTE`

@@ -98,7 +98,8 @@ When the user asks to set up GitHub protection, use the GitHub UI/API or `gh` CL
 - admins are included in enforcement.
 - force pushes and deletions are disabled.
 - `develop` exists if the repository uses a develop integration branch.
-- `STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT` is set as a repository variable for the verifier workflow.
+- `STRAIGHT_JACKET_CI_KEY` is set as a GitHub Actions secret for the verifier workflow.
+- agents must not ask for, store, print, or update the master password or CI key.
 
 If using `gh`, the setup guide is:
 
@@ -140,6 +141,7 @@ Explain what changed and which human command is needed. Do not request secrets o
 - edit .straight-jacket/signers.sig
 - edit .straight-jacket/registration-public-key.json
 - edit .straight-jacket/registration-key.enc.json
+- ask user for CI key in chat
 - ask user for password in chat
 - commit with --no-verify to bypass checks
 - delete hooks to bypass checks

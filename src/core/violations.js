@@ -1,5 +1,8 @@
 const VIOLATION_MESSAGES = {
   CHECKSUM_MISMATCH: ({ path }) => `${path} checksum changed`,
+  CI_KEY_INVALID: () => "Straight Jacket CI key is invalid",
+  CI_PROOF_INVALID: () => "Straight Jacket CI proof is invalid",
+  CI_PROOF_MISSING: () => "Straight Jacket CI proof is missing",
   PROTECTED_FILE_MISSING: ({ path }) => `${path} is missing`,
   LIKELY_RENAME_OR_MOVE: ({ path }) => `${path} appears to contain a protected file moved from another path`,
   MANIFEST_INVALID: () => "Straight Jacket manifest is invalid",

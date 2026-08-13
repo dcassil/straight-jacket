@@ -45,6 +45,15 @@ test("CLI parser maps commands, flags, and positionals without reading passwords
       json: true
     }
   });
+
+  assert.deepEqual(parseArgs(["verify", "--ci-key", "sjci_v1_example", "--json"]), {
+    command: "verify",
+    positional: [],
+    flags: {
+      ciKey: "sjci_v1_example",
+      json: true
+    }
+  });
 });
 
 test("CLI parser rejects forbidden password source flags before dispatch", async () => {
@@ -117,6 +126,26 @@ test("CLI output formatter suggests remove and rename commands when applicable",
   assert.match(output.stdout, /straight-jacket rename docs\/old\.md docs\/new\.md/);
 });
 
+test("CLI output formatter prints CI setup instructions after initialization", async () => {
+  const { formatOutput } = await import("../../src/cli/output.js");
+
+  const output = formatOutput({
+    json: false,
+    result: {
+      ok: true,
+      ci: {
+        secretName: "STRAIGHT_JACKET_CI_KEY",
+        ciKey: "sjci_v1_example",
+        warning: "Never give an AI agent your master password."
+      }
+    }
+  });
+
+  assert.match(output.stdout, /Create a repository secret named STRAIGHT_JACKET_CI_KEY/);
+  assert.match(output.stdout, /sjci_v1_example/);
+  assert.match(output.stdout, /Never give an AI agent your master password/);
+});
+
 test("CLI help builder includes command usage and setup guidance", async () => {
   const { buildHelp } = await import("../../src/cli/help.js");
 
@@ -126,7 +155,7 @@ test("CLI help builder includes command usage and setup guidance", async () => {
   assert.match(buildHelp("add"), /straight-jacket add <path-or-pattern>\.\.\./);
   assert.match(buildHelp("add"), /Directory checksums are not supported yet/);
   assert.match(buildHelp("remove"), /straight-jacket remove <path-or-pattern>\.\.\./);
-  assert.match(buildHelp("verify"), /--trusted-public-key-fingerprint/);
+  assert.match(buildHelp("verify"), /--ci-key/);
 });
 
 test("CLI exit-code mapper distinguishes success, verification failure, usage, and authorization", async () => {

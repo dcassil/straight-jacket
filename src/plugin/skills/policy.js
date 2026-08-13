@@ -25,6 +25,7 @@ export function buildSkillPolicy() {
       "edit .straight-jacket/signers.sig",
       "edit .straight-jacket/registration-public-key.json",
       "edit .straight-jacket/registration-key.enc.json",
+      "ask user for CI key in chat",
       "ask user for password in chat",
       "commit with --no-verify to bypass checks"
     ]

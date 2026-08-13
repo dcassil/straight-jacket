@@ -25,7 +25,7 @@ MVP:
 
 - checksum: SHA-256
 - manifest signature: Ed25519
-- public-key fingerprint: SHA-256 over canonical public key metadata
+- CI proof: HMAC-SHA-256 over registration metadata using a CI-only key derived from the master password
 - private-key encryption: password-based key derivation plus authenticated encryption
 
 Node implementation options:
@@ -84,7 +84,7 @@ Stored in repo:
 .straight-jacket/registration-key.enc.json
 ```
 
-The registration public key is not secret. The encrypted registration key is committed so fresh clones can register local signers with the master password, but the master password cannot sign protected-file manifest changes. Strong mode must pin the registration public-key fingerprint outside AI-editable files.
+The registration public key is not secret. The encrypted registration key is committed so fresh clones can register local signers with the master password, but the master password cannot sign protected-file manifest changes. Strong mode verifies committed registration metadata with `STRAIGHT_JACKET_CI_KEY`, which is derived from the master password and stored as a GitHub Actions secret.
 
 ## Signer Registry Storage
 
@@ -130,6 +130,13 @@ Fresh clone setup:
 6. Add the local signer public key to `.straight-jacket/signers.json`.
 7. Re-sign `.straight-jacket/signers.json` with the registration key.
 
+Legacy setup:
+
+1. If only `.straight-jacket/public-key.json` exists, verify the legacy manifest signature and locked file checksums first.
+2. Create registration and local signer keys from the supplied master/local passwords.
+3. Re-sign the manifest with the new local signer and write the signer registry, registration key, and CI proof metadata.
+4. Remove the legacy public-key metadata.
+
 ## Verification Flow
 
 Read-only operations:
@@ -137,7 +144,7 @@ Read-only operations:
 1. Read manifest bytes.
 2. Read signature payload.
 3. Read signer registry, signer-registry signature, and registration public key.
-4. Optionally compare registration public-key fingerprint to externally pinned fingerprint.
+4. If a CI key is supplied, verify `.straight-jacket/ci-proof.json` against registration metadata.
 5. Verify the signer registry signature with the registration public key.
 6. Find the active signer named by the manifest signature.
 7. Canonicalize parsed manifest.
@@ -148,7 +155,8 @@ Failures return verification violations:
 - `REGISTRATION_PUBLIC_KEY_MISSING`
 - `SIGNERS_MISSING`
 - `SIGNERS_SIGNATURE_INVALID`
-- `PUBLIC_KEY_FINGERPRINT_MISMATCH`
+- `CI_PROOF_INVALID`
+- `CI_PROOF_MISSING`
 - `MANIFEST_SIGNATURE_MISSING`
 - `MANIFEST_SIGNATURE_INVALID`
 

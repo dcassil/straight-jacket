@@ -22,6 +22,7 @@ test("plugin skill policy lists required first checks and forbidden actions", as
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/manifest.sig"));
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/signers.json"));
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/registration-public-key.json"));
+  assert.ok(policy.forbiddenActions.includes("ask user for CI key in chat"));
   assert.ok(policy.forbiddenActions.includes("ask user for password in chat"));
   assert.ok(policy.forbiddenActions.includes("commit with --no-verify to bypass checks"));
 });
@@ -100,7 +101,7 @@ test("plugin skill template documents first checks and forbidden actions", async
     assert.match(skillText, /GitHub Protection Guidance/);
     assert.match(skillText, /requires a pull request before merging/);
     assert.match(skillText, /requires the `verify` status check/);
-    assert.match(skillText, /STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT/);
+    assert.match(skillText, /STRAIGHT_JACKET_CI_KEY/);
     assert.match(skillText, /gh api "repos\/OWNER\/REPO\/branches\/main\/protection"/);
     assert.match(skillText, /edit \.straight-jacket\/manifest\.json/);
     assert.match(skillText, /edit \.straight-jacket\/manifest\.sig/);
@@ -111,7 +112,7 @@ test("plugin skill template documents first checks and forbidden actions", async
   }
 });
 
-test("hook and CI templates include staged verification and external fingerprint guidance", async () => {
+test("hook and CI templates include staged verification and CI key guidance", async () => {
   const hook = await readFile(new URL("../../templates/hooks/pre-commit", import.meta.url), "utf8");
   const workflow = await readFile(new URL("../../templates/ci/github-action.yml", import.meta.url), "utf8");
 
@@ -121,6 +122,6 @@ test("hook and CI templates include staged verification and external fingerprint
   assert.match(hook, /straight-jacket:end/);
   assert.match(workflow, /straight-jacket verify/);
   assert.match(workflow, /npm install -g straight-jacket/);
-  assert.match(workflow, /STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT/);
-  assert.match(workflow, /\$\{\{ vars\.STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT \}\}/);
+  assert.match(workflow, /STRAIGHT_JACKET_CI_KEY/);
+  assert.match(workflow, /\$\{\{ secrets\.STRAIGHT_JACKET_CI_KEY \}\}/);
 });

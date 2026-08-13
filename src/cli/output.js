@@ -43,7 +43,23 @@ function humanOutput(result) {
     return humanVerificationFailure(result.violations);
   }
 
+  if (result.ok === true && result.ci?.ciKey) {
+    return humanCiSetupOutput(result);
+  }
+
   return `${result.ok === false ? "failed" : "ok"}\n`;
+}
+
+function humanCiSetupOutput(result) {
+  return [
+    "ok",
+    "",
+    "GitHub Actions CI setup:",
+    `Create a repository secret named ${result.ci.secretName} with this value:`,
+    result.ci.ciKey,
+    "",
+    result.ci.warning
+  ].join("\n") + "\n";
 }
 
 function humanVerificationFailure(violations) {

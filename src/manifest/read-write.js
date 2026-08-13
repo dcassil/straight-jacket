@@ -8,6 +8,7 @@ export const SIGNERS_PATH = ".straight-jacket/signers.json";
 export const SIGNERS_SIGNATURE_PATH = ".straight-jacket/signers.sig";
 export const REGISTRATION_PUBLIC_KEY_PATH = ".straight-jacket/registration-public-key.json";
 export const REGISTRATION_KEY_PATH = ".straight-jacket/registration-key.enc.json";
+export const CI_PROOF_PATH = ".straight-jacket/ci-proof.json";
 
 export async function readManifest(repoRoot) {
   return JSON.parse(await readFile(manifestPath(repoRoot), "utf8"));
@@ -65,6 +66,14 @@ export async function writeRegistrationKey(repoRoot, encrypted) {
   await writeJsonFile(registrationKeyPath(repoRoot), encrypted);
 }
 
+export async function readCiProof(repoRoot) {
+  return JSON.parse(await readFile(ciProofPath(repoRoot), "utf8"));
+}
+
+export async function writeCiProof(repoRoot, proof) {
+  await writeJsonFile(ciProofPath(repoRoot), proof);
+}
+
 export function manifestPath(repoRoot) {
   return path.join(repoRoot, MANIFEST_PATH);
 }
@@ -91,6 +100,10 @@ export function registrationPublicKeyPath(repoRoot) {
 
 export function registrationKeyPath(repoRoot) {
   return path.join(repoRoot, REGISTRATION_KEY_PATH);
+}
+
+export function ciProofPath(repoRoot) {
+  return path.join(repoRoot, CI_PROOF_PATH);
 }
 
 async function writeJsonFile(filePath, payload) {

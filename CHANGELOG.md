@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0 - 2026-08-13
+
+- Replaced CI trust-root pinning with a master-password-derived `STRAIGHT_JACKET_CI_KEY` proof model.
+- Added `.straight-jacket/ci-proof.json` and `straight-jacket verify --ci-key` for GitHub Actions enforcement.
+- Updated setup output to print a CI-only key for humans to store as a GitHub Actions secret without exposing the master password.
+- Restored the release workflow and converted verifier workflows to use `STRAIGHT_JACKET_CI_KEY`.
+
 ## 0.1.11 - 2026-08-13
 
 - Added master-password registration authority and per-developer local signer registration.

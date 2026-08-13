@@ -197,7 +197,7 @@ Inputs:
 
 - `--staged`
 - `--json`
-- future `--trusted-public-key-fingerprint`
+- `--ci-key`
 
 Behavior:
 
@@ -237,7 +237,7 @@ Behavior:
 
 - call `installCi`
 - write `.github/workflows/straight-jacket.yml`
-- include external fingerprint pinning guidance
+- include CI key secret guidance
 - do not require password
 - do not claim branch protection was configured
 

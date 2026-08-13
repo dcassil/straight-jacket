@@ -17,6 +17,7 @@ const COMMAND_HELP = {
     summary: "Register this checkout's local signer or initialize a clean repository.",
     details: [
       "In a clean repository, prompts for a master password and a local password and initializes Straight Jacket.",
+      "In a legacy repository with public-key metadata, verifies protected files first, then upgrades to the signer registry and CI proof format.",
       "In an initialized clone, verifies protected files first, then prompts for the master password and a new local password.",
       "The master password cannot authorize add, update, remove, or rename.",
       "--check is read-only and exits non-zero when local signer setup is missing or incomplete."
@@ -53,16 +54,17 @@ const COMMAND_HELP = {
     ]
   },
   verify: {
-    usage: "straight-jacket verify [--staged] [--trusted-public-key-fingerprint <sha256:...>] [--json]",
+    usage: "straight-jacket verify [--staged] [--ci-key <sjci_v1_...>] [--json]",
     summary: "Verify signed metadata and protected file integrity.",
     details: [
       "Read-only. Exits 0 when verification passes and 1 when violations are found.",
       "--staged verifies staged Git content for pre-commit and CI-style checks.",
-      "--trusted-public-key-fingerprint pins the expected public verifier fingerprint from external config."
+      "--ci-key verifies the committed CI proof against the GitHub Actions secret."
     ],
     examples: [
       "straight-jacket verify",
-      "straight-jacket verify --staged --json"
+      "straight-jacket verify --staged --json",
+      "straight-jacket verify --ci-key \"$STRAIGHT_JACKET_CI_KEY\""
     ]
   },
   status: {
@@ -128,7 +130,7 @@ const COMMAND_HELP = {
     summary: "Write a CI verifier template.",
     details: [
       "Currently supports --provider github-actions.",
-      "The generated workflow includes guidance for externally pinned registration public-key fingerprints."
+      "The generated workflow verifies the committed CI proof with the STRAIGHT_JACKET_CI_KEY GitHub Actions secret."
     ],
     examples: [
       "straight-jacket install-ci",

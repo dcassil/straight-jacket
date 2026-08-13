@@ -13,6 +13,7 @@ Files:
 .straight-jacket/signers.sig
 .straight-jacket/registration-public-key.json
 .straight-jacket/registration-key.enc.json
+.straight-jacket/ci-proof.json
 ```
 
 Implementation folder:
@@ -107,7 +108,35 @@ Suggested `.straight-jacket/registration-public-key.json`:
 }
 ```
 
-The registration public-key fingerprint is computed from canonical public key metadata. Strong mode pins this fingerprint outside AI-editable files.
+The registration public-key fingerprint is computed from canonical public key metadata. Strong mode uses `.straight-jacket/ci-proof.json` plus the human-controlled `STRAIGHT_JACKET_CI_KEY` secret to detect unauthorized registration metadata replacement.
+
+## CI Proof Shape
+
+Suggested `.straight-jacket/ci-proof.json`:
+
+```json
+{
+  "version": 1,
+  "algorithm": "hmac-sha256",
+  "keyDerivation": {
+    "name": "scrypt",
+    "salt": "straight-jacket-ci-v1",
+    "cost": 16384,
+    "blockSize": 8,
+    "parallelization": 1,
+    "keyLength": 32
+  },
+  "covered": [
+    "registration-public-key",
+    "registration-key",
+    "signers",
+    "signers-signature"
+  ],
+  "proof": "sha256:..."
+}
+```
+
+The proof is an HMAC over canonical registration metadata using `STRAIGHT_JACKET_CI_KEY`. It intentionally does not cover `manifest.json`, so registered local users can still approve protected-file changes without the master password.
 
 ## Canonicalization
 

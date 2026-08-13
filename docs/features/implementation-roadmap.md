@@ -77,7 +77,7 @@ Implement:
 
 - missing manifest/signature/signer-registry/registration-public-key checks
 - invalid signature checks
-- registration public-key fingerprint pinning
+- CI key proof verification
 - duplicate path detection
 - case-collision detection
 - absolute/escape rejection
@@ -113,7 +113,7 @@ Done when:
 
 - `verifyRepository({ scope: "staged" })` catches staged tampering
 - status reports local hooks as advisory
-- CI template includes external fingerprint pinning guidance
+- CI template includes CI key secret guidance
 
 ## Milestone 6: CLI Surface
 
@@ -171,7 +171,7 @@ Implement:
 Done when:
 
 - skill teaches agents to respect protected files
-- CI template documents external fingerprint pinning
+- CI template documents CI key secret setup
 
 ## Suggested Build Order
 

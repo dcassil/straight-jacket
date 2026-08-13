@@ -20,7 +20,7 @@ Strong enforcement requires at least one verifier outside the AI-editable workin
 
 - required CI check
 - server-side Git hook
-- repository rule that pins trusted registration public-key fingerprint
+- CI proof verification with a human-controlled `STRAIGHT_JACKET_CI_KEY` secret
 - protected branch configuration
 
 Straight Jacket must never claim local hooks are impossible to bypass.
@@ -140,16 +140,15 @@ jobs:
       - run: straight-jacket verify
 ```
 
-Strong mode should include a pinned registration public-key fingerprint supplied by repository settings or CI variables:
+Strong mode should include the CI key generated from the master password during `straight-jacket setup`.
 
 ```sh
-straight-jacket verify --trusted-public-key-fingerprint "$STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT"
+straight-jacket verify --ci-key "$STRAIGHT_JACKET_CI_KEY"
 ```
 
-The fingerprint variable must be controlled by humans or repository administrators.
+The CI key is not the master password and cannot unlock signing keys. It must still be controlled by humans or repository administrators, never by an AI agent.
 
-For GitHub Actions, store it as a repository variable named
-`STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT`.
+For GitHub Actions, store it as a repository secret named `STRAIGHT_JACKET_CI_KEY`.
 
 ## Server-Side Hook Template
 
@@ -163,7 +162,7 @@ Behavior:
 
 - verify incoming tree state
 - reject invalid manifests, tampered signer registries, tampered protected files, and registration public-key replacement
-- read trusted registration public-key fingerprint from server-controlled config
+- read trusted CI key from server-controlled config
 
 ## Test Mapping
 
@@ -178,4 +177,4 @@ Future tests:
 - existing hook append/idempotency
 - executable bit
 - hook invokes `straight-jacket setup --check`, `straight-jacket verify`, and `straight-jacket verify --staged`
-- CI template includes external fingerprint guidance
+- CI template includes CI key secret guidance

@@ -12,6 +12,7 @@ test("GitHub workflows enforce version bump and release-on-main policy", async (
   assert.match(releaseWorkflow, /on:\n  push:\n    branches: \[main\]/);
   assert.match(releaseWorkflow, /npm publish --access public/);
   assert.match(releaseWorkflow, /secrets\.NPM_TOKEN/);
+  assert.match(releaseWorkflow, /STRAIGHT_JACKET_CI_KEY/);
   assert.match(releaseWorkflow, /git push origin "\$\{\{ steps\.release\.outputs\.tag_name \}\}"/);
   assert.match(releaseWorkflow, /gh release create/);
   assert.match(agentRules, /Every PR intended for `main` must bump/);

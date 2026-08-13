@@ -90,7 +90,7 @@ export async function runCommand({ argv, cwd, stdin, stderr }) {
     return verifyRepository({
       repoRoot,
       scope: parsed.flags.staged ? "staged" : "working-tree",
-      trustedPublicKeyFingerprint: parsed.flags.trustedPublicKeyFingerprint
+      ciKey: parsed.flags.ciKey
     });
   }
 

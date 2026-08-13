@@ -36,7 +36,7 @@ test("CLI help flags document setup and command-specific usage", async () => {
   }
 });
 
-test("CLI init creates repo metadata and returns stable JSON with public verifier fingerprint", async () => {
+test("CLI init creates repo metadata and returns stable JSON with CI key guidance", async () => {
   const fixture = await createRepoFixture();
   try {
     const result = runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`);
@@ -51,6 +51,9 @@ test("CLI init creates repo metadata and returns stable JSON with public verifie
     assert.equal(await fixture.exists(".straight-jacket/signers.sig"), true);
     assert.equal(await fixture.exists(".straight-jacket/registration-public-key.json"), true);
     assert.equal(await fixture.exists(".straight-jacket/registration-key.enc.json"), true);
+    assert.equal(await fixture.exists(".straight-jacket/ci-proof.json"), true);
+    assert.equal(body.ci.secretName, "STRAIGHT_JACKET_CI_KEY");
+    assert.match(body.ci.ciKey, /^sjci_v1_/);
   } finally {
     await fixture.cleanup();
   }
@@ -110,6 +113,7 @@ test("CLI setup check reports missing local signer until setup registers one", a
     );
     assert.equal(setup.status, 0, setup.stderr);
     assert.equal(parseJson(setup.stdout).registered, true);
+    assert.equal(parseJson(setup.stdout).ci.secretName, "STRAIGHT_JACKET_CI_KEY");
 
     const checkAfter = runCli(fixture.repoRoot, ["setup", "--check", "--json"]);
     assert.equal(checkAfter.status, 0, checkAfter.stderr);
@@ -122,7 +126,9 @@ test("CLI setup check reports missing local signer until setup registers one", a
 test("CLI add/list/verify expose expected machine-readable contract", async () => {
   const fixture = await createRepoFixture();
   try {
-    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+    const init = runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`);
+    assert.equal(init.status, 0);
+    const initBody = parseJson(init.stdout);
 
     const add = runCli(
       fixture.repoRoot,
@@ -144,6 +150,14 @@ test("CLI add/list/verify expose expected machine-readable contract", async () =
     const verify = runCli(fixture.repoRoot, ["verify", "--json"]);
     assert.equal(verify.status, 0, verify.stderr);
     assert.deepEqual(parseJson(verify.stdout), { ok: true, checked: 1, violations: [] });
+
+    const ciVerify = runCli(fixture.repoRoot, ["verify", "--ci-key", initBody.ci.ciKey, "--json"]);
+    assert.equal(ciVerify.status, 0, ciVerify.stderr);
+    assert.deepEqual(parseJson(ciVerify.stdout), { ok: true, checked: 1, violations: [] });
+
+    const missingSecretVerify = runCli(fixture.repoRoot, ["verify", "--ci-key", "", "--json"]);
+    assert.notEqual(missingSecretVerify.status, 0);
+    assert.equal(parseJson(missingSecretVerify.stdout).violations[0].code, "CI_KEY_INVALID");
   } finally {
     await fixture.cleanup();
   }
@@ -320,7 +334,7 @@ test("CLI rename authorizes a protected path change explicitly", async () => {
   }
 });
 
-test("CLI install-ci writes a verifier workflow with external fingerprint guidance", async () => {
+test("CLI install-ci writes a verifier workflow with CI key guidance", async () => {
   const fixture = await createRepoFixture();
   try {
     assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
