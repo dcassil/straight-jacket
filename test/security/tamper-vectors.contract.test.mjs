@@ -87,26 +87,26 @@ test("detects signature deletion", async () => {
   }
 });
 
-test("detects public verifier deletion", async () => {
+test("detects registration public verifier deletion", async () => {
   const fixture = await createRepoFixture();
   try {
     const core = await loadCore();
     await initAndProtect(core, fixture.repoRoot);
-    await rm(path.join(fixture.repoRoot, ".straight-jacket", "public-key.json"));
+    await rm(path.join(fixture.repoRoot, ".straight-jacket", "registration-public-key.json"));
 
-    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "PUBLIC_KEY_MISSING");
+    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "REGISTRATION_PUBLIC_KEY_MISSING");
   } finally {
     await fixture.cleanup();
   }
 });
 
-test("detects public verifier replacement when trusted fingerprint is pinned externally", async () => {
+test("detects registration public verifier replacement when trusted fingerprint is pinned externally", async () => {
   const fixture = await createRepoFixture();
   try {
     const core = await loadCore();
     const init = await core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW });
     await core.addProtectedFile({ repoRoot: fixture.repoRoot, path: "docs/policy.md", password: PASSWORD, reason: "Human-owned policy file", now: NOW });
-    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "public-key.json"), JSON.stringify({ algorithm: "ed25519", publicKey: "attacker-key" }));
+    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "registration-public-key.json"), JSON.stringify({ algorithm: "ed25519", publicKey: "attacker-key" }));
 
     expectViolation(
       await core.verifyRepository({
@@ -147,14 +147,30 @@ test("detects corrupted signature JSON without throwing", async () => {
   }
 });
 
-test("detects corrupted public verifier JSON without throwing", async () => {
+test("detects corrupted registration public verifier JSON without throwing", async () => {
   const fixture = await createRepoFixture();
   try {
     const core = await loadCore();
     await initAndProtect(core, fixture.repoRoot);
-    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "public-key.json"), "{not-json");
+    await writeFile(path.join(fixture.repoRoot, ".straight-jacket", "registration-public-key.json"), "{not-json");
 
-    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "PUBLIC_KEY_INVALID");
+    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "REGISTRATION_PUBLIC_KEY_INVALID");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("detects signer registry tampering without a valid registration signature", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await initAndProtect(core, fixture.repoRoot);
+    const signersPath = path.join(fixture.repoRoot, ".straight-jacket", "signers.json");
+    const signers = JSON.parse(await readFile(signersPath, "utf8"));
+    signers.signers = [];
+    await writeFile(signersPath, JSON.stringify(signers, null, 2));
+
+    expectViolation(await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" }), "SIGNERS_SIGNATURE_INVALID");
   } finally {
     await fixture.cleanup();
   }

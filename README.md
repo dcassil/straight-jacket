@@ -50,8 +50,8 @@ requires a pull request and the `verify` status check. See
 
 ```sh
 straight-jacket --help
-straight-jacket init --help
-straight-jacket init
+straight-jacket setup --help
+straight-jacket setup
 node bin/straight-jacket.mjs list --json
 node bin/straight-jacket.mjs verify --json
 straight-jacket add 'tools/pre-commit-*' --reason "Hook scripts"

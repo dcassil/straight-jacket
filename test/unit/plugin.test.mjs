@@ -12,7 +12,7 @@ test("plugin skill policy lists required first checks and forbidden actions", as
     "straight-jacket verify --json"
   ]);
   assert.equal(policy.setupGuidance.cliMissing, "npm install -g github:dcassil/straight-jacket");
-  assert.equal(policy.setupGuidance.projectNotInitialized, "straight-jacket init");
+  assert.equal(policy.setupGuidance.projectNotInitialized, "straight-jacket setup");
   assert.equal(policy.setupGuidance.mcpNotConnected, "[mcp_servers.straight-jacket]");
   assert.equal(policy.setupGuidance.githubProtectionGuide, "docs/features/github-protection.md");
   assert.equal(policy.githubProtectionChecks.requiredStatusCheck, "verify");
@@ -20,7 +20,8 @@ test("plugin skill policy lists required first checks and forbidden actions", as
   assert.equal(policy.githubProtectionChecks.enforceAdmins, true);
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/manifest.json"));
   assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/manifest.sig"));
-  assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/public-key.json"));
+  assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/signers.json"));
+  assert.ok(policy.forbiddenActions.includes("edit .straight-jacket/registration-public-key.json"));
   assert.ok(policy.forbiddenActions.includes("ask user for password in chat"));
   assert.ok(policy.forbiddenActions.includes("commit with --no-verify to bypass checks"));
 });
@@ -94,7 +95,7 @@ test("plugin skill template documents first checks and forbidden actions", async
     assert.match(skillText, /command -v straight-jacket/);
     assert.match(skillText, /npm install -g github:dcassil\/straight-jacket/);
     assert.match(skillText, /Before using Straight Jacket, you need to initialize it in this project/);
-    assert.match(skillText, /straight-jacket init/);
+    assert.match(skillText, /straight-jacket setup/);
     assert.match(skillText, /\[mcp_servers\.straight-jacket\]/);
     assert.match(skillText, /GitHub Protection Guidance/);
     assert.match(skillText, /requires a pull request before merging/);
@@ -103,7 +104,8 @@ test("plugin skill template documents first checks and forbidden actions", async
     assert.match(skillText, /gh api "repos\/OWNER\/REPO\/branches\/main\/protection"/);
     assert.match(skillText, /edit \.straight-jacket\/manifest\.json/);
     assert.match(skillText, /edit \.straight-jacket\/manifest\.sig/);
-    assert.match(skillText, /edit \.straight-jacket\/public-key\.json/);
+    assert.match(skillText, /edit \.straight-jacket\/signers\.json/);
+    assert.match(skillText, /edit \.straight-jacket\/registration-public-key\.json/);
     assert.match(skillText, /ask user for password in chat/);
     assert.match(skillText, /commit with --no-verify to bypass checks/);
   }
@@ -114,6 +116,7 @@ test("hook and CI templates include staged verification and external fingerprint
   const workflow = await readFile(new URL("../../templates/ci/github-action.yml", import.meta.url), "utf8");
 
   assert.match(hook, /straight-jacket:start/);
+  assert.match(hook, /straight-jacket setup --check/);
   assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
   assert.match(hook, /straight-jacket:end/);
   assert.match(workflow, /straight-jacket verify/);

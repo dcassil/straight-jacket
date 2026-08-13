@@ -3,8 +3,8 @@ const COMMAND_HELP = {
     usage: "straight-jacket init [--json]",
     summary: "Initialize Straight Jacket metadata in the current Git repository.",
     details: [
-      "Creates .straight-jacket/manifest.json, .straight-jacket/manifest.sig, and .straight-jacket/public-key.json.",
-      "Prompts for a human password twice. The password unlocks local signing material and is never stored in repo files.",
+      "Creates the protected-file manifest, signer registry, registration public key, encrypted registration key, and first local signer.",
+      "Prompts for a master password and a local password. The master password registers users; the local password authorizes protected-file changes.",
       "Run this from the project root before adding protected files."
     ],
     examples: [
@@ -12,11 +12,25 @@ const COMMAND_HELP = {
       "straight-jacket init --json"
     ]
   },
+  setup: {
+    usage: "straight-jacket setup [--check] [--json]",
+    summary: "Register this checkout's local signer or initialize a clean repository.",
+    details: [
+      "In a clean repository, prompts for a master password and a local password and initializes Straight Jacket.",
+      "In an initialized clone, verifies protected files first, then prompts for the master password and a new local password.",
+      "The master password cannot authorize add, update, remove, or rename.",
+      "--check is read-only and exits non-zero when local signer setup is missing or incomplete."
+    ],
+    examples: [
+      "straight-jacket setup",
+      "straight-jacket setup --check --json"
+    ]
+  },
   add: {
     usage: "straight-jacket add <path-or-pattern>... [--reason <text>] [--json]",
     summary: "Register one or more file paths and content checksums as human-protected.",
     details: [
-      "Requires an initialized project and prompts for the human password.",
+      "Requires an initialized project and prompts for the local password.",
       "Accepts multiple paths and quoted glob patterns such as 'scripts/guardrails/*.mjs'.",
       "Rejects absolute paths, parent-directory escapes, symlinks, duplicates, and case-only path collisions.",
       "Directory checksums are not supported yet; protect files inside a directory with a pattern."
@@ -66,7 +80,7 @@ const COMMAND_HELP = {
     usage: "straight-jacket update <path> [--json]",
     summary: "Accept the current content of a protected file as the new authorized checksum.",
     details: [
-      "Requires an initialized project and prompts for the human password.",
+      "Requires an initialized project and prompts for the local password.",
       "Use only after the human approves the protected file content change."
     ],
     examples: [
@@ -77,7 +91,7 @@ const COMMAND_HELP = {
     usage: "straight-jacket remove <path-or-pattern>... [--json]",
     summary: "Remove one or more protected entries from the signed manifest.",
     details: [
-      "Requires an initialized project and prompts for the human password.",
+      "Requires an initialized project and prompts for the local password.",
       "Accepts multiple paths and quoted glob patterns matched against registered protected paths.",
       "Does not delete files; it removes Straight Jacket protection for matching paths."
     ],
@@ -90,7 +104,7 @@ const COMMAND_HELP = {
     usage: "straight-jacket rename <old-path> <new-path> [--json]",
     summary: "Authorize a protected path change.",
     details: [
-      "Requires an initialized project and prompts for the human password.",
+      "Requires an initialized project and prompts for the local password.",
       "Moving or renaming a protected file without this command is reported as a verification violation."
     ],
     examples: [
@@ -99,9 +113,10 @@ const COMMAND_HELP = {
   },
   "install-hook": {
     usage: "straight-jacket install-hook [--json]",
-    summary: "Install the advisory local pre-commit hook.",
+    summary: "Install the committed advisory pre-commit hook path.",
     details: [
-      "Writes a hook that runs straight-jacket verify and straight-jacket verify --staged.",
+      "Writes .githooks/pre-commit and configures Git core.hooksPath to .githooks.",
+      "The hook checks local signer setup before running straight-jacket verify and straight-jacket verify --staged.",
       "Local hooks are useful friction, not the strong security boundary."
     ],
     examples: [
@@ -113,7 +128,7 @@ const COMMAND_HELP = {
     summary: "Write a CI verifier template.",
     details: [
       "Currently supports --provider github-actions.",
-      "The generated workflow includes guidance for externally pinned public-key fingerprints."
+      "The generated workflow includes guidance for externally pinned registration public-key fingerprints."
     ],
     examples: [
       "straight-jacket install-ci",
@@ -124,6 +139,7 @@ const COMMAND_HELP = {
 
 const COMMAND_ORDER = [
   "init",
+  "setup",
   "add",
   "list",
   "verify",
@@ -149,6 +165,7 @@ export function buildHelp(topic) {
     "  straight-jacket <command> --help",
     "",
     "Setup:",
+    "  straight-jacket setup",
     "  straight-jacket init",
     "  straight-jacket add <path> --reason \"Human-owned file\"",
     "  straight-jacket verify",
@@ -161,7 +178,8 @@ export function buildHelp(topic) {
     "  -h, --help       Show help.",
     "",
     "Security notes:",
-    "  Mutating commands prompt for the human password in the terminal.",
+    "  Master passwords register new local users; local passwords authorize protected-file changes.",
+    "  Mutating protected-file commands prompt for the local password in the terminal.",
     "  Passwords are never accepted through --password, --password-file, env vars, or repo files.",
     "  Local hooks are advisory; strong enforcement requires CI or a server-side verifier.",
     "",

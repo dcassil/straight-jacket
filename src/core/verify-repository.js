@@ -4,12 +4,32 @@ import { resolveRepoPath } from "../git/paths.js";
 import { scanForChecksum } from "../git/scan.js";
 import { getStagedChanges, readStagedFile } from "../git/staged.js";
 import { canonicalizeJson } from "../manifest/canonical-json.js";
-import { readManifest, readPublicKey, readSignature } from "../manifest/read-write.js";
+import {
+  MANIFEST_PATH,
+  REGISTRATION_PUBLIC_KEY_PATH,
+  SIGNATURE_PATH,
+  SIGNERS_PATH,
+  SIGNERS_SIGNATURE_PATH,
+  readManifest,
+  readRegistrationPublicKey,
+  readSignature,
+  readSigners,
+  readSignersSignature
+} from "../manifest/read-write.js";
 import { validateManifestShape } from "../manifest/validation.js";
 import { fingerprintPublicKey } from "../signing/keys.js";
 import { verifyPayloadSignature } from "../signing/signatures.js";
+import { findActiveSigner, publicKeyFromSigner, validateSignerRegistry } from "../signing/signer-registry.js";
 import { createViolation } from "./violations.js";
 import { buildVerificationResult } from "./verification-result.js";
+
+const METADATA_PATHS = new Set([
+  MANIFEST_PATH,
+  SIGNATURE_PATH,
+  SIGNERS_PATH,
+  SIGNERS_SIGNATURE_PATH,
+  REGISTRATION_PUBLIC_KEY_PATH
+]);
 
 export async function verifyRepository({ repoRoot, scope = "working-tree", trustedPublicKeyFingerprint, skipSignatureForDiagnostics = false } = {}) {
   if (scope !== "working-tree") {
@@ -20,28 +40,19 @@ export async function verifyRepository({ repoRoot, scope = "working-tree", trust
   }
 
   const violations = [];
-  const manifest = await readJsonOrViolation(repoRoot, "manifest");
-  const signature = await readJsonOrViolation(repoRoot, "signature");
-  const publicKey = await readJsonOrViolation(repoRoot, "publicKey");
+  const metadata = await readMetadataOrViolations(repoRoot);
+  const { manifest, signature, signers, signersSignature, registrationPublicKey } = metadata;
 
-  if (manifest.violation) {
-    violations.push(manifest.violation);
-  }
-  if (signature.violation) {
-    violations.push(signature.violation);
-  }
-  if (publicKey.violation) {
-    violations.push(publicKey.violation);
-  }
+  violations.push(...metadata.violations);
 
   if (violations.length > 0) {
     return buildVerificationResult({ checked: 0, violations });
   }
 
   if (trustedPublicKeyFingerprint) {
-    const actualFingerprint = fingerprintPublicKeyOrNull(publicKey.value);
+    const actualFingerprint = fingerprintPublicKeyOrNull(registrationPublicKey.value);
     if (actualFingerprint === null) {
-      violations.push(createViolation("PUBLIC_KEY_INVALID"));
+      violations.push(createViolation("REGISTRATION_PUBLIC_KEY_INVALID"));
     } else if (actualFingerprint !== trustedPublicKeyFingerprint) {
       violations.push(createViolation("PUBLIC_KEY_FINGERPRINT_MISMATCH", {
         expected: trustedPublicKeyFingerprint,
@@ -52,15 +63,33 @@ export async function verifyRepository({ repoRoot, scope = "working-tree", trust
 
   const manifestViolations = validateManifestShape(manifest.value).map((violation) => createViolation(violation.code, violation));
   violations.push(...manifestViolations);
+  const signerViolations = validateSignerRegistry(signers.value).map((violation) => createViolation(violation.code, violation));
+  violations.push(...signerViolations);
 
-  if (!skipSignatureForDiagnostics) {
-    const signatureValid = await verifyPayloadSignature({
-      payload: canonicalizeJson(manifest.value),
-      signature: signature.value,
-      publicKey: publicKey.value
+  if (violations.length === 0) {
+    const signersSignatureValid = await verifyPayloadSignature({
+      payload: canonicalizeJson(signers.value),
+      signature: signersSignature.value,
+      publicKey: registrationPublicKey.value
     });
-    if (!signatureValid) {
-      violations.push(createViolation("MANIFEST_SIGNATURE_INVALID"));
+    if (!signersSignatureValid) {
+      violations.push(createViolation("SIGNERS_SIGNATURE_INVALID"));
+    }
+  }
+
+  if (!skipSignatureForDiagnostics && violations.length === 0) {
+    const signer = findActiveSigner(signers.value, signature.value.keyId ?? manifest.value.keyId);
+    if (!signer || manifest.value.keyId !== signer.keyId) {
+      violations.push(createViolation("MANIFEST_SIGNER_NOT_REGISTERED"));
+    } else {
+      const signatureValid = await verifyPayloadSignature({
+        payload: canonicalizeJson(manifest.value),
+        signature: signature.value,
+        publicKey: publicKeyFromSigner(signer)
+      });
+      if (!signatureValid) {
+        violations.push(createViolation("MANIFEST_SIGNATURE_INVALID"));
+      }
     }
   }
 
@@ -75,14 +104,16 @@ export async function verifyRepository({ repoRoot, scope = "working-tree", trust
 }
 
 async function verifyStagedScope({ repoRoot }) {
-  const manifest = await readJsonOrViolation(repoRoot, "manifest");
-  if (manifest.violation) {
-    return buildVerificationResult({ checked: 0, violations: [manifest.violation] });
+  const workingMetadata = await readMetadataOrViolations(repoRoot);
+  if (workingMetadata.manifest?.violation) {
+    return buildVerificationResult({ checked: 0, violations: [workingMetadata.manifest.violation] });
   }
 
   const changes = await getStagedChanges(repoRoot);
   const violations = [];
-  const protectedPaths = new Set(manifest.value.entries.map((entry) => entry.path));
+  const stagedMetadata = await readStagedMetadataOrViolations(repoRoot);
+  const manifestForProtectedPaths = stagedMetadata.manifest?.value ?? workingMetadata.manifest.value;
+  const protectedPaths = new Set(manifestForProtectedPaths.entries.map((entry) => entry.path));
 
   for (const change of changes) {
     if ((change.status === "deleted" && protectedPaths.has(change.path)) ||
@@ -93,39 +124,17 @@ async function verifyStagedScope({ repoRoot }) {
     }
   }
 
-  if (changes.some((change) => change.path === ".straight-jacket/manifest.json")) {
-    const stagedManifestText = await readStagedFile(repoRoot, ".straight-jacket/manifest.json");
-    const stagedSignatureText = await readStagedFile(repoRoot, ".straight-jacket/manifest.sig");
-    const stagedPublicKeyText = await readStagedFile(repoRoot, ".straight-jacket/public-key.json");
-
-    const stagedManifest = parseJsonOrNull(stagedManifestText);
-    const stagedSignature = stagedSignatureText ? parseJsonOrNull(stagedSignatureText) : (await readJsonOrViolation(repoRoot, "signature")).value;
-    const stagedPublicKey = stagedPublicKeyText ? parseJsonOrNull(stagedPublicKeyText) : (await readJsonOrViolation(repoRoot, "publicKey")).value;
-    if (!stagedManifest || !stagedSignature || !stagedPublicKey) {
+  if (changes.some((change) => METADATA_PATHS.has(change.path) || METADATA_PATHS.has(change.oldPath))) {
+    const metadataViolations = await verifyMetadataValues(stagedMetadata);
+    if (metadataViolations.length > 0) {
       violations.push(createViolation("STAGED_MANIFEST_SIGNATURE_INVALID", {
-        path: ".straight-jacket/manifest.json"
-      }));
-      return buildVerificationResult({
-        checked: manifest.value.entries.length,
-        violations
-      });
-    }
-
-    const signatureValid = await verifyPayloadSignature({
-      payload: canonicalizeJson(stagedManifest),
-      signature: stagedSignature,
-      publicKey: stagedPublicKey
-    });
-
-    if (!signatureValid) {
-      violations.push(createViolation("STAGED_MANIFEST_SIGNATURE_INVALID", {
-        path: ".straight-jacket/manifest.json"
+        path: MANIFEST_PATH
       }));
     }
   }
 
   return buildVerificationResult({
-    checked: manifest.value.entries.length,
+    checked: manifestForProtectedPaths.entries.length,
     violations
   });
 }
@@ -176,7 +185,13 @@ async function readJsonOrViolation(repoRoot, kind) {
     if (kind === "signature") {
       return { value: await readSignature(repoRoot) };
     }
-    return { value: await readPublicKey(repoRoot) };
+    if (kind === "signers") {
+      return { value: await readSigners(repoRoot) };
+    }
+    if (kind === "signersSignature") {
+      return { value: await readSignersSignature(repoRoot) };
+    }
+    return { value: await readRegistrationPublicKey(repoRoot) };
   } catch (error) {
     if (error.code === "ENOENT") {
       return { violation: createViolation(missingCodeForKind(kind)) };
@@ -195,7 +210,13 @@ function missingCodeForKind(kind) {
   if (kind === "signature") {
     return "MANIFEST_SIGNATURE_MISSING";
   }
-  return "PUBLIC_KEY_MISSING";
+  if (kind === "signers") {
+    return "SIGNERS_MISSING";
+  }
+  if (kind === "signersSignature") {
+    return "SIGNERS_SIGNATURE_MISSING";
+  }
+  return "REGISTRATION_PUBLIC_KEY_MISSING";
 }
 
 function invalidCodeForKind(kind) {
@@ -205,7 +226,13 @@ function invalidCodeForKind(kind) {
   if (kind === "signature") {
     return "MANIFEST_SIGNATURE_INVALID";
   }
-  return "PUBLIC_KEY_INVALID";
+  if (kind === "signers") {
+    return "SIGNERS_INVALID";
+  }
+  if (kind === "signersSignature") {
+    return "SIGNERS_SIGNATURE_INVALID";
+  }
+  return "REGISTRATION_PUBLIC_KEY_INVALID";
 }
 
 function fingerprintPublicKeyOrNull(publicKey) {
@@ -222,4 +249,113 @@ function parseJsonOrNull(text) {
   } catch {
     return null;
   }
+}
+
+async function readMetadataOrViolations(repoRoot) {
+  const [manifest, signature, signers, signersSignature, registrationPublicKey] = await Promise.all([
+    readJsonOrViolation(repoRoot, "manifest"),
+    readJsonOrViolation(repoRoot, "signature"),
+    readJsonOrViolation(repoRoot, "signers"),
+    readJsonOrViolation(repoRoot, "signersSignature"),
+    readJsonOrViolation(repoRoot, "registrationPublicKey")
+  ]);
+
+  return {
+    manifest,
+    signature,
+    signers,
+    signersSignature,
+    registrationPublicKey,
+    violations: [manifest, signature, signers, signersSignature, registrationPublicKey]
+      .flatMap((item) => item.violation ? [item.violation] : [])
+  };
+}
+
+async function readStagedMetadataOrViolations(repoRoot) {
+  const [manifest, signature, signers, signersSignature, registrationPublicKey] = await Promise.all([
+    readStagedJsonOrWorking(repoRoot, "manifest"),
+    readStagedJsonOrWorking(repoRoot, "signature"),
+    readStagedJsonOrWorking(repoRoot, "signers"),
+    readStagedJsonOrWorking(repoRoot, "signersSignature"),
+    readStagedJsonOrWorking(repoRoot, "registrationPublicKey")
+  ]);
+
+  return {
+    manifest,
+    signature,
+    signers,
+    signersSignature,
+    registrationPublicKey,
+    violations: [manifest, signature, signers, signersSignature, registrationPublicKey]
+      .flatMap((item) => item.violation ? [item.violation] : [])
+  };
+}
+
+async function readStagedJsonOrWorking(repoRoot, kind) {
+  const text = await readStagedFile(repoRoot, pathForKind(kind));
+  if (text === null) {
+    return readJsonOrViolation(repoRoot, kind);
+  }
+
+  const value = parseJsonOrNull(text);
+  if (!value) {
+    return { violation: createViolation(invalidCodeForKind(kind)) };
+  }
+  return { value };
+}
+
+async function verifyMetadataValues(metadata) {
+  const violations = [...metadata.violations];
+  if (violations.length > 0) {
+    return violations;
+  }
+
+  violations.push(...validateManifestShape(metadata.manifest.value).map((violation) => createViolation(violation.code, violation)));
+  violations.push(...validateSignerRegistry(metadata.signers.value).map((violation) => createViolation(violation.code, violation)));
+  if (violations.length > 0) {
+    return violations;
+  }
+
+  const signersSignatureValid = await verifyPayloadSignature({
+    payload: canonicalizeJson(metadata.signers.value),
+    signature: metadata.signersSignature.value,
+    publicKey: metadata.registrationPublicKey.value
+  });
+  if (!signersSignatureValid) {
+    violations.push(createViolation("SIGNERS_SIGNATURE_INVALID"));
+    return violations;
+  }
+
+  const signer = findActiveSigner(metadata.signers.value, metadata.signature.value.keyId ?? metadata.manifest.value.keyId);
+  if (!signer || metadata.manifest.value.keyId !== signer.keyId) {
+    violations.push(createViolation("MANIFEST_SIGNER_NOT_REGISTERED"));
+    return violations;
+  }
+
+  const manifestSignatureValid = await verifyPayloadSignature({
+    payload: canonicalizeJson(metadata.manifest.value),
+    signature: metadata.signature.value,
+    publicKey: publicKeyFromSigner(signer)
+  });
+  if (!manifestSignatureValid) {
+    violations.push(createViolation("MANIFEST_SIGNATURE_INVALID"));
+  }
+
+  return violations;
+}
+
+function pathForKind(kind) {
+  if (kind === "manifest") {
+    return MANIFEST_PATH;
+  }
+  if (kind === "signature") {
+    return SIGNATURE_PATH;
+  }
+  if (kind === "signers") {
+    return SIGNERS_PATH;
+  }
+  if (kind === "signersSignature") {
+    return SIGNERS_SIGNATURE_PATH;
+  }
+  return REGISTRATION_PUBLIC_KEY_PATH;
 }

@@ -53,7 +53,7 @@ If `.straight-jacket/manifest.json` is missing, tell the user:
 ```text
 Before using Straight Jacket, you need to initialize it in this project. Open a terminal in the project root and run:
 
-straight-jacket init
+straight-jacket setup
 
 After that, register files that should require human authorization:
 
@@ -64,12 +64,12 @@ Do not run mutating setup commands yourself unless the user explicitly asks you 
 
 ### Metadata Or Config Incomplete
 
-If `.straight-jacket/manifest.json`, `.straight-jacket/manifest.sig`, or `.straight-jacket/public-key.json` is missing while another one exists, tell the user:
+If `.straight-jacket/manifest.json`, `.straight-jacket/manifest.sig`, `.straight-jacket/signers.json`, `.straight-jacket/signers.sig`, `.straight-jacket/registration-public-key.json`, or `.straight-jacket/registration-key.enc.json` is missing while another one exists, tell the user:
 
 ```text
 Straight Jacket metadata is incomplete. Restore the missing `.straight-jacket` files from version control, or if this project has no protected files yet, re-initialize it with:
 
-straight-jacket init
+straight-jacket setup
 ```
 
 Do not edit Straight Jacket metadata files by hand.
@@ -136,7 +136,10 @@ Explain what changed and which human command is needed. Do not request secrets o
 
 - edit .straight-jacket/manifest.json
 - edit .straight-jacket/manifest.sig
-- edit .straight-jacket/public-key.json
+- edit .straight-jacket/signers.json
+- edit .straight-jacket/signers.sig
+- edit .straight-jacket/registration-public-key.json
+- edit .straight-jacket/registration-key.enc.json
 - ask user for password in chat
 - commit with --no-verify to bypass checks
 - delete hooks to bypass checks

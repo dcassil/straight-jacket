@@ -1,20 +1,23 @@
 import {
   addProtectedFile,
   addProtectedFiles,
+  checkRepositorySetup,
   getRepositoryStatus,
   initRepository,
   installCi,
   installHook,
+  isRepositoryInitialized,
   listProtectedFiles,
   removeProtectedFiles,
   renameProtectedFile,
+  setupRepository,
   updateProtectedFile,
   verifyRepository
 } from "../index.js";
 import { createCodedError } from "../core/errors.js";
 import { buildHelp } from "./help.js";
 import { parseArgs } from "./parse-args.js";
-import { readPassword, readPasswordConfirmation } from "./prompts.js";
+import { readMasterAndLocalPasswordConfirmation, readPassword, readSetupPasswords } from "./prompts.js";
 
 export async function runCommand({ argv, cwd, stdin, stderr }) {
   const parsed = parseArgs(argv);
@@ -28,11 +31,35 @@ export async function runCommand({ argv, cwd, stdin, stderr }) {
   }
 
   if (parsed.command === "init") {
-    const { password, confirmation } = await readPasswordConfirmation(stdin, stderr);
-    if (password !== confirmation) {
-      throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Password confirmation did not match");
+    const { masterPassword, masterConfirmation, localPassword, localConfirmation } = await readMasterAndLocalPasswordConfirmation(stdin, stderr);
+    if (masterPassword !== masterConfirmation) {
+      throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Master password confirmation did not match");
     }
-    return initRepository({ repoRoot, password });
+    if (localPassword !== localConfirmation) {
+      throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Local password confirmation did not match");
+    }
+    return initRepository({ repoRoot, masterPassword, localPassword });
+  }
+
+  if (parsed.command === "setup") {
+    if (parsed.flags.check) {
+      return checkRepositorySetup({ repoRoot });
+    }
+    if (!await isRepositoryInitialized(repoRoot)) {
+      const { masterPassword, masterConfirmation, localPassword, localConfirmation } = await readMasterAndLocalPasswordConfirmation(stdin, stderr);
+      if (masterPassword !== masterConfirmation) {
+        throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Master password confirmation did not match");
+      }
+      if (localPassword !== localConfirmation) {
+        throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Local password confirmation did not match");
+      }
+      return setupRepository({ repoRoot, masterPassword, localPassword });
+    }
+    const { masterPassword, localPassword, localConfirmation } = await readSetupPasswords(stdin, stderr);
+    if (localPassword !== localConfirmation) {
+      throw createCodedError("INVALID_PASSWORD_CONFIRMATION", "Local password confirmation did not match");
+    }
+    return setupRepository({ repoRoot, masterPassword, localPassword });
   }
 
   if (parsed.command === "add") {

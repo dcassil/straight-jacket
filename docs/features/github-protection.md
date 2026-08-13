@@ -42,7 +42,7 @@ git push
 The workflow should verify against a fingerprint that is controlled outside the AI-editable repository tree.
 
 ```sh
-fingerprint="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(".straight-jacket/public-key.json", "utf8")).fingerprint)')"
+fingerprint="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(".straight-jacket/registration-public-key.json", "utf8")).fingerprint)')"
 gh variable set STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT --body "$fingerprint"
 ```
 

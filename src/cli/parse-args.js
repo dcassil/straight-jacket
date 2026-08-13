@@ -1,6 +1,6 @@
 import { createCodedError } from "../core/errors.js";
 
-const BOOLEAN_FLAGS = new Set(["json", "staged"]);
+const BOOLEAN_FLAGS = new Set(["check", "json", "staged"]);
 const VALUE_FLAGS = new Set(["reason", "provider", "trusted-public-key-fingerprint"]);
 const FORBIDDEN_PASSWORD_FLAGS = new Set(["password", "password-file"]);
 const HELP_TOKENS = new Set(["--help", "-h"]);
