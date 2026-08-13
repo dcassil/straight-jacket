@@ -1,4 +1,5 @@
 export { initRepository } from "./core/init-repository.js";
+export { checkRepositorySetup, isRepositoryInitialized, setupRepository } from "./core/setup-repository.js";
 export { installCi } from "./core/install-ci.js";
 export { installHook } from "./core/hooks.js";
 export { listProtectedFiles } from "./core/list-protected-files.js";

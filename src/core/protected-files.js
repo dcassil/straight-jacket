@@ -1,5 +1,5 @@
 import { normalizeRepoPath } from "../git/paths.js";
-import { expandListedPatterns, expandRepoPatterns } from "../git/glob.js";
+import { expandListedPatterns, expandRepoPatterns, hasGlobMagic } from "../git/glob.js";
 import { createProtectedEntry, sortEntries } from "../manifest/entries.js";
 import { validateEntrySet } from "../manifest/validation.js";
 import { assertAuthorizedSigner } from "../signing/authorization.js";
@@ -88,11 +88,10 @@ export async function removeProtectedFiles({ repoRoot, paths, password, now } = 
   }
 
   const { manifest } = await loadVerifiedManifest(repoRoot);
-  const protectedPaths = expandListedPatterns(paths, manifest.entries.map((entry) => entry.path));
   const registeredPaths = new Set(manifest.entries.map((entry) => entry.path));
-  const missingPath = protectedPaths.find((protectedPath) => !registeredPaths.has(protectedPath));
-  if (missingPath) {
-    throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "Protected path is not registered");
+  const protectedPaths = removableProtectedPaths(paths, registeredPaths);
+  if (protectedPaths.length === 0) {
+    throw createCodedError("PROTECTED_PATH_NOT_REGISTERED", "No registered protected paths matched");
   }
 
   const signer = await assertAuthorizedSigner({ repoRoot, password });
@@ -114,6 +113,25 @@ export async function removeProtectedFiles({ repoRoot, paths, password, now } = 
     ok: true,
     removedPaths: protectedPaths
   };
+}
+
+function removableProtectedPaths(paths, registeredPaths) {
+  const expanded = [];
+  const registeredPathList = [...registeredPaths];
+
+  for (const candidate of paths) {
+    if (hasGlobMagic(candidate)) {
+      expanded.push(...expandListedPatterns([candidate], registeredPathList));
+      continue;
+    }
+
+    const protectedPath = normalizeRepoPath(candidate);
+    if (registeredPaths.has(protectedPath)) {
+      expanded.push(protectedPath);
+    }
+  }
+
+  return [...new Set(expanded)].sort((left, right) => left.localeCompare(right));
 }
 
 export async function updateProtectedFile({ repoRoot, path, password, now } = {}) {

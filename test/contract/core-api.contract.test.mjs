@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { createRepoFixture, expectViolation, initAndProtect, loadCore, NOW, PASSWORD } from "../helpers/repo-fixture.mjs";
+import { createRepoFixture, expectViolation, initAndProtect, loadCore, LOCAL_PASSWORD, MASTER_PASSWORD, NOW, PASSWORD } from "../helpers/repo-fixture.mjs";
 
 test("initRepository creates signed repo-readable verification metadata without storing the password", async () => {
   const fixture = await createRepoFixture();
@@ -18,8 +19,15 @@ test("initRepository creates signed repo-readable verification metadata without 
     assert.equal(result.ok, true);
     assert.match(result.manifestPath, /\.straight-jacket\/manifest\.json$/);
     assert.match(result.signaturePath, /\.straight-jacket\/manifest\.sig$/);
-    assert.match(result.publicKeyPath, /\.straight-jacket\/public-key\.json$/);
+    assert.match(result.signersPath, /\.straight-jacket\/signers\.json$/);
+    assert.match(result.signersSignaturePath, /\.straight-jacket\/signers\.sig$/);
+    assert.match(result.registrationPublicKeyPath, /\.straight-jacket\/registration-public-key\.json$/);
+    assert.match(result.registrationKeyPath, /\.straight-jacket\/registration-key\.enc\.json$/);
+    assert.match(result.ciProofPath, /\.straight-jacket\/ci-proof\.json$/);
     assert.match(result.fingerprint, /^sha256:[a-f0-9]+$/);
+    assert.match(result.localSignerKeyId, /^sha256:[a-f0-9]+$/);
+    assert.equal(result.ci.secretName, "STRAIGHT_JACKET_CI_KEY");
+    assert.match(result.ci.ciKey, /^sjci_v1_/);
 
     const manifest = JSON.parse(await fixture.file(".straight-jacket/manifest.json"));
     assert.equal(manifest.version, 1);
@@ -29,9 +37,71 @@ test("initRepository creates signed repo-readable verification metadata without 
     const repoState = [
       await fixture.file(".straight-jacket/manifest.json"),
       await fixture.file(".straight-jacket/manifest.sig"),
-      await fixture.file(".straight-jacket/public-key.json")
+      await fixture.file(".straight-jacket/signers.json"),
+      await fixture.file(".straight-jacket/signers.sig"),
+      await fixture.file(".straight-jacket/registration-public-key.json"),
+      await fixture.file(".straight-jacket/registration-key.enc.json"),
+      await fixture.file(".straight-jacket/ci-proof.json")
     ].join("\n");
     assert.equal(repoState.includes(PASSWORD), false, "password must never be stored in repo metadata");
+    assert.equal(repoState.includes(result.ci.ciKey), false, "CI key must never be stored in repo metadata");
+
+    const verify = await core.verifyRepository({
+      repoRoot: fixture.repoRoot,
+      scope: "working-tree",
+      ciKey: result.ci.ciKey
+    });
+    assert.deepEqual(verify, { ok: true, checked: 0, violations: [] });
+
+    expectViolation(await core.verifyRepository({
+      repoRoot: fixture.repoRoot,
+      scope: "working-tree",
+      ciKey: ""
+    }), "CI_KEY_INVALID");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("CI key accepts reinitialized metadata only when the same master password is used", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    const initial = await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: LOCAL_PASSWORD,
+      now: NOW
+    });
+    const originalCiKey = initial.ci.ciKey;
+
+    await rm(path.join(fixture.repoRoot, ".straight-jacket"), { recursive: true, force: true });
+    await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: "new local password",
+      now: NOW
+    });
+
+    assert.deepEqual(await core.verifyRepository({
+      repoRoot: fixture.repoRoot,
+      scope: "working-tree",
+      ciKey: originalCiKey
+    }), { ok: true, checked: 0, violations: [] });
+
+    await rm(path.join(fixture.repoRoot, ".straight-jacket"), { recursive: true, force: true });
+    await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: "different master password",
+      localPassword: "new local password",
+      now: NOW
+    });
+
+    expectViolation(await core.verifyRepository({
+      repoRoot: fixture.repoRoot,
+      scope: "working-tree",
+      ciKey: originalCiKey
+    }), "CI_PROOF_INVALID");
   } finally {
     await fixture.cleanup();
   }
@@ -48,7 +118,8 @@ test("initRepository refuses to overwrite existing Straight Jacket metadata", as
     });
     const manifestBefore = await fixture.file(".straight-jacket/manifest.json");
     const signatureBefore = await fixture.file(".straight-jacket/manifest.sig");
-    const publicKeyBefore = await fixture.file(".straight-jacket/public-key.json");
+    const signersBefore = await fixture.file(".straight-jacket/signers.json");
+    const registrationPublicKeyBefore = await fixture.file(".straight-jacket/registration-public-key.json");
 
     await assert.rejects(
       () => core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW }),
@@ -57,12 +128,204 @@ test("initRepository refuses to overwrite existing Straight Jacket metadata", as
 
     assert.equal(await fixture.file(".straight-jacket/manifest.json"), manifestBefore);
     assert.equal(await fixture.file(".straight-jacket/manifest.sig"), signatureBefore);
-    assert.equal(await fixture.file(".straight-jacket/public-key.json"), publicKeyBefore);
-    assert.equal(first.fingerprint, JSON.parse(publicKeyBefore).fingerprint);
+    assert.equal(await fixture.file(".straight-jacket/signers.json"), signersBefore);
+    assert.equal(await fixture.file(".straight-jacket/registration-public-key.json"), registrationPublicKeyBefore);
+    assert.equal(first.fingerprint, JSON.parse(registrationPublicKeyBefore).fingerprint);
   } finally {
     await fixture.cleanup();
   }
 });
+
+test("master password registers users but cannot mutate protected files", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: LOCAL_PASSWORD,
+      now: NOW
+    });
+
+    await assert.rejects(
+      () => core.addProtectedFile({
+        repoRoot: fixture.repoRoot,
+        path: "docs/policy.md",
+        password: MASTER_PASSWORD,
+        reason: "Human-owned policy file",
+        now: NOW
+      }),
+      /INVALID_PASSWORD/
+    );
+
+    const result = await core.addProtectedFile({
+      repoRoot: fixture.repoRoot,
+      path: "docs/policy.md",
+      password: LOCAL_PASSWORD,
+      reason: "Human-owned policy file",
+      now: NOW
+    });
+
+    assert.equal(result.ok, true);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("setupRepository registers a fresh clone only after protected files verify", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: LOCAL_PASSWORD,
+      now: NOW
+    });
+    await core.addProtectedFile({
+      repoRoot: fixture.repoRoot,
+      path: "docs/policy.md",
+      password: LOCAL_PASSWORD,
+      reason: "Human-owned policy file",
+      now: NOW
+    });
+    await rm(path.join(fixture.repoRoot, ".straight-jacket", "local"), { recursive: true, force: true });
+
+    const missing = await assert.rejects(
+      () => core.checkRepositorySetup({ repoRoot: fixture.repoRoot }),
+      /LOCAL_SIGNER_MISSING/
+    );
+    assert.equal(missing, undefined);
+
+    const setup = await core.setupRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: "fresh clone local password",
+      now: NOW
+    });
+
+    assert.equal(setup.ok, true);
+    assert.equal(setup.registered, true);
+    assert.match(setup.signerKeyId, /^sha256:/);
+    assert.equal(setup.ci.secretName, "STRAIGHT_JACKET_CI_KEY");
+    assert.match(setup.ci.ciKey, /^sjci_v1_/);
+    const signers = JSON.parse(await fixture.file(".straight-jacket/signers.json"));
+    assert.equal(signers.signers.length, 2);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("setupRepository upgrades legacy metadata after verifying locked files", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await writeLegacyMetadata(fixture.repoRoot);
+
+    const setup = await core.setupRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: LOCAL_PASSWORD,
+      now: NOW
+    });
+
+    assert.equal(setup.ok, true);
+    assert.equal(setup.upgraded, true);
+    assert.equal(setup.registered, true);
+    assert.equal(setup.ci.secretName, "STRAIGHT_JACKET_CI_KEY");
+    assert.equal(await fixture.exists(".straight-jacket/public-key.json"), false);
+    assert.equal(await fixture.exists(".straight-jacket/signers.json"), true);
+    assert.equal(await fixture.exists(".straight-jacket/signers.sig"), true);
+    assert.equal(await fixture.exists(".straight-jacket/registration-public-key.json"), true);
+    assert.equal(await fixture.exists(".straight-jacket/registration-key.enc.json"), true);
+    assert.equal(await fixture.exists(".straight-jacket/ci-proof.json"), true);
+
+    assert.deepEqual(await core.verifyRepository({
+      repoRoot: fixture.repoRoot,
+      scope: "working-tree",
+      ciKey: setup.ci.ciKey
+    }), { ok: true, checked: 1, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("setupRepository refuses to register a local signer while locked files are dirty", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: LOCAL_PASSWORD,
+      now: NOW
+    });
+    await core.addProtectedFile({
+      repoRoot: fixture.repoRoot,
+      path: "docs/policy.md",
+      password: LOCAL_PASSWORD,
+      reason: "Human-owned policy file",
+      now: NOW
+    });
+    await rm(path.join(fixture.repoRoot, ".straight-jacket", "local"), { recursive: true, force: true });
+    await fixture.write("docs/policy.md", "# Policy\n\nDirty before setup.\n");
+
+    const setup = await core.setupRepository({
+      repoRoot: fixture.repoRoot,
+      masterPassword: MASTER_PASSWORD,
+      localPassword: "fresh clone local password",
+      now: NOW
+    });
+
+    assert.equal(setup.ok, false);
+    expectViolation(setup, "CHECKSUM_MISMATCH", "docs/policy.md");
+    assert.equal(await fixture.exists(".straight-jacket/local/private-key.json"), false);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+async function writeLegacyMetadata(repoRoot, entryPath = "docs/policy.md") {
+  const { canonicalizeJson } = await import("../../src/manifest/canonical-json.js");
+  const { createSigningKey, exportPublicKey } = await import("../../src/signing/keys.js");
+  const { signPayload } = await import("../../src/signing/signatures.js");
+  const keyPair = await createSigningKey();
+  const publicKey = await exportPublicKey(keyPair);
+  const content = await readFile(path.join(repoRoot, entryPath));
+  const manifest = {
+    version: 1,
+    repoId: `sha256:${createHash("sha256").update(repoRoot).digest("hex")}`,
+    hashAlgorithm: "sha256",
+    signatureAlgorithm: "ed25519",
+    keyId: publicKey.keyId,
+    policy: {
+      allowSymlinks: false,
+      requireHumanAuthorization: true,
+      failClosed: true
+    },
+    entries: [
+      {
+        path: entryPath,
+        name: path.basename(entryPath),
+        checksum: `sha256:${createHash("sha256").update(content).digest("hex")}`,
+        size: content.length,
+        registeredAt: NOW,
+        reason: "Legacy protected file"
+      }
+    ]
+  };
+  const signature = await signPayload({
+    payload: canonicalizeJson(manifest),
+    privateKey: keyPair.privateKey,
+    keyId: publicKey.keyId,
+    now: NOW
+  });
+
+  await mkdir(path.join(repoRoot, ".straight-jacket"), { recursive: true });
+  await writeFile(path.join(repoRoot, ".straight-jacket", "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeFile(path.join(repoRoot, ".straight-jacket", "manifest.sig"), `${JSON.stringify(signature, null, 2)}\n`);
+  await writeFile(path.join(repoRoot, ".straight-jacket", "public-key.json"), `${JSON.stringify(publicKey, null, 2)}\n`);
+}
 
 test("addProtectedFile registers path, basename, checksum, size, timestamp, reason, and re-signs manifest", async () => {
   const fixture = await createRepoFixture();
@@ -127,6 +390,52 @@ test("addProtectedFiles registers shell-expanded path lists and removeProtectedF
       removedPaths: [
         "tools/pre-commit-alpha",
         "tools/pre-commit-beta"
+      ]
+    });
+
+    const verify = await core.verifyRepository({ repoRoot: fixture.repoRoot, scope: "working-tree" });
+    assert.deepEqual(verify, { ok: true, checked: 0, violations: [] });
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("removeProtectedFiles skips shell-expanded unregistered paths and removes registered matches", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    const core = await loadCore();
+    await core.initRepository({ repoRoot: fixture.repoRoot, password: PASSWORD, now: NOW });
+    await fixture.write("something/somethingelse/alpha.py", "print('alpha')\n");
+    await fixture.write("something/somethingelse/beta.py", "print('beta')\n");
+    await fixture.write("something/other/unlocked.py", "print('other')\n");
+
+    await core.addProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: [
+        "something/somethingelse/alpha.py",
+        "something/somethingelse/beta.py"
+      ],
+      password: PASSWORD,
+      reason: "Python scripts",
+      now: NOW
+    });
+
+    const remove = await core.removeProtectedFiles({
+      repoRoot: fixture.repoRoot,
+      paths: [
+        "something/other/unlocked.py",
+        "something/somethingelse/alpha.py",
+        "something/somethingelse/beta.py"
+      ],
+      password: PASSWORD,
+      now: NOW
+    });
+
+    assert.deepEqual(remove, {
+      ok: true,
+      removedPaths: [
+        "something/somethingelse/alpha.py",
+        "something/somethingelse/beta.py"
       ]
     });
 
@@ -300,15 +609,17 @@ test("installHook installs an advisory pre-commit hook that runs full and staged
 
     assert.equal(result.ok, true);
     assert.equal(result.hook.installed, true);
-    assert.match(result.hook.path, /\.git\/hooks\/pre-commit$/);
+    assert.match(result.hook.path, /\.githooks\/pre-commit$/);
+    assert.equal(result.hook.configuredHooksPath, ".githooks");
     const hook = await readFile(result.hook.path, "utf8");
+    assert.match(hook, /straight-jacket setup --check/);
     assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
   } finally {
     await fixture.cleanup();
   }
 });
 
-test("installCi creates a verifier template with external fingerprint pinning guidance", async () => {
+test("installCi creates a verifier template with CI key proof guidance", async () => {
   const fixture = await createRepoFixture();
   try {
     const core = await loadCore();
@@ -324,7 +635,9 @@ test("installCi creates a verifier template with external fingerprint pinning gu
     assert.equal(result.path, ".github/workflows/straight-jacket.yml");
     const workflow = await fixture.file(".github/workflows/straight-jacket.yml");
     assert.match(workflow, /straight-jacket verify/);
-    assert.match(workflow, /STRAIGHT_JACKET_PUBLIC_KEY_FINGERPRINT/);
+    assert.doesNotMatch(workflow, /straight-jacket verify .*--json/);
+    assert.match(workflow, /--ci-key "\$STRAIGHT_JACKET_CI_KEY"/);
+    assert.match(workflow, /secrets\.STRAIGHT_JACKET_CI_KEY/);
   } finally {
     await fixture.cleanup();
   }

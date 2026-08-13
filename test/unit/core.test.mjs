@@ -31,11 +31,11 @@ test("core verification result builder preserves all violations and checked coun
 
   assert.deepEqual(buildVerificationResult({
     checked: 2,
-    violations: [{ code: "MANIFEST_MISSING" }, { code: "PUBLIC_KEY_MISSING" }]
+    violations: [{ code: "MANIFEST_MISSING" }, { code: "REGISTRATION_PUBLIC_KEY_MISSING" }]
   }), {
     ok: false,
     checked: 2,
-    violations: [{ code: "MANIFEST_MISSING" }, { code: "PUBLIC_KEY_MISSING" }]
+    violations: [{ code: "MANIFEST_MISSING" }, { code: "REGISTRATION_PUBLIC_KEY_MISSING" }]
   });
 });
 
