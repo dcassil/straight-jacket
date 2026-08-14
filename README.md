@@ -1,13 +1,33 @@
 # Straight Jacket
 
-A repo-native cli + gh action + pre-commit hook to lock files and make it impposible for AI agents to commit changes to them.
+A repo-native CLI, GitHub Action, and pre-commit hook for protecting files that
+should only change with human approval.
 
 ## How it works
 
-Straight Jacket separates two kinds of authority. The master password encrypts the repository’s registration key, which is used to register trusted local signers. From that master password, Straight Jacket also derives a STRAIGHT_JACKET_CI_KEY value that you store as a GitHub Actions secret so CI can detect unauthorized metadata replacement.
-Each checkout also has a local password. That local password encrypts the local signer private key in .straight-jacket/local/, and that signer is used when a human intentionally adds, updates, removes, or renames protected files.
-Protected files are tracked in a signed JSON manifest. When you run straight-jacket add <file>, Straight Jacket records the file path, size, timestamp, and SHA-256 checksum of the file’s current contents. Later, straight-jacket verify hashes the current file contents and compares them to the signed checksum; if the file changed without being re-authorized, verification fails.
-The metadata is also signed. The manifest must be signed by a registered local signer, and the signer registry must be signed by the registration key. In CI, straight-jacket verify --ci-key "$STRAIGHT_JACKET_CI_KEY" checks the committed CI proof, which ties the registration metadata back to the original master-derived CI key and catches replacement with metadata initialized under a different master password.
+Straight Jacket separates two kinds of authority. The master password encrypts
+the repository registration key, which is used to register trusted local
+signers. Straight Jacket also derives a `STRAIGHT_JACKET_CI_KEY` from that
+master password; store this derived value as a GitHub Actions secret so CI can
+detect unauthorized metadata replacement.
+
+Each checkout has a local password. The local password encrypts that checkout's
+local signer private key in `.straight-jacket/local/`. That local signer is used
+when a human intentionally adds, updates, removes, or renames protected files.
+
+Protected files are tracked in a signed JSON manifest. When you run
+`straight-jacket add <file>`, Straight Jacket records the file path, size,
+timestamp, and SHA-256 checksum of the file's current contents. Later,
+`straight-jacket verify` hashes the current contents and compares them to the
+signed checksum. If the file changed without being re-authorized, verification
+fails.
+
+The metadata is signed too. The manifest must be signed by a registered local
+signer, and the signer registry must be signed by the registration key. In CI,
+`straight-jacket verify --ci-key "$STRAIGHT_JACKET_CI_KEY"` checks the committed
+CI proof, tying the registration metadata back to the original master-derived CI
+key and catching replacement with metadata initialized under a different master
+password.
 
 See [`PRODUCT_VISION.md`](./PRODUCT_VISION.md) for the full rationale.
 
@@ -16,16 +36,22 @@ See [`PRODUCT_VISION.md`](./PRODUCT_VISION.md) for the full rationale.
 ```sh
 npm i --save-dev straight-jacket
 ```
-optionally install globally with -g
+
+You can also install it globally:
+
+```sh
+npm i -g straight-jacket
+```
 
 ## CLI quick guide
-```
+
+```sh
 straight-jacket --help
 straight-jacket setup --help
 
 straight-jacket add <path | pattern>
 straight-jacket add <path> <second path> ...
-straight-jacket add <path> --reason "<optional description - can be helpful for AI agents"
+straight-jacket add <path> --reason "<optional description>"
 
 straight-jacket update <path | pattern>
 straight-jacket update <path> <second path> ...
@@ -35,135 +61,178 @@ straight-jacket remove <path | pattern>
 
 ## Setup
 
-```
+```sh
 straight-jacket setup
 ```
 
-It will prompt you for a master password (and to confirm)
-- If this repo has multiple contributors, that will need to approve changes to protected files, make sure the master password is something you are okay with sharing.
-- The master password allows this to be setup for a team / multiple devs, while still remaining repo based with no outside dependencies / servers (except github).
+This prompts for a master password and confirmation.
 
-Next it will prompt you for a local password (and to confirm).
-- This is your personal password.
+- If multiple contributors need to approve protected-file changes, choose a
+  master password you are comfortable sharing with those trusted contributors.
+- The master password lets Straight Jacket remain repo-based and team-friendly
+  without depending on an external service.
 
-### NOTE: Do not copy and paste either password into an AI chat and do not store either password anywhere an AI agent can read it.
+Next, it prompts for a local password and confirmation. This is your personal
+password for this checkout.
 
-Next it will generate a key that the github action will need.  
-- This needs to be copied and saved for use in the next step.
+Do not paste either password into an AI chat, and do not store either password
+anywhere an AI agent can read it.
 
-### ! To ensure 100% locking that an agent can not get around you must do this next step.
-## Setup branch protection and github action (Optional but reccomended)
-locally run ```straight-jacket install-ci```
+`setup` also prints the `STRAIGHT_JACKET_CI_KEY` value needed by the GitHub
+Action. Copy that value and save it for the branch protection setup below.
 
+## Set up GitHub enforcement
+
+The pre-commit hook is useful, but it is advisory: a user or agent can bypass it
+with `git commit --no-verify`. For merge enforcement, install the GitHub Action
+and require it through branch protection.
+
+Run:
+
+```sh
+straight-jacket install-ci
 ```
+
+Stage the generated metadata and workflow:
+
+```sh
 git add .straight-jacket
 git add .github/workflows/straight-jacket.yml
 ```
 
-commit and push to the branch you want to protect / or to temp / develop branch -> open pr to main (depending on your setup)
-```
-git commit -m"Adding github action for straight-jacket"
+Commit and push those changes to the branch you want to protect, or push them to
+a temporary/development branch and open a PR to your protected branch.
+
+```sh
+git commit -m "Add Straight Jacket CI"
 git push
 ```
-This registers the action so you can add branch protection.
 
-on github.com 
+This registers the workflow so GitHub can use it as a required status check.
 
-go to repo -> repo settings -> secrets and variables -> actions
-  -   add the key you copied earlier with name "STRAIGHT_JACKET_CI_KEY"
+On GitHub:
 
-go to repo -> repo settings -> branches -> add classic branch rule
-  -  in the "Branch name pattern" box type the branch name / pattern you want to protect (main for example). 
-  -  check: Require a pull request before merging (this prevents the agent using --no-verify to commit and push direct to protected branch)
-  -  check: Require status checks to pass before merging
-  -  in the "Search for status checks" box search for "verify" (the action registered earlier)
-  -  Save
+1. Go to repo settings -> Secrets and variables -> Actions.
+2. Add the key printed by `straight-jacket setup` as `STRAIGHT_JACKET_CI_KEY`.
+3. Go to repo settings -> Branches -> Add classic branch protection rule.
+4. Set the branch name pattern you want to protect, such as `main`.
+5. Enable "Require a pull request before merging".
+6. Enable "Require status checks to pass before merging".
+7. Search for and select the `verify` status check.
+8. Save the rule.
 
-For more info see [`docs/features/github-protection.md`](./docs/features/github-protection.md).
+For more detail, see
+[`docs/features/github-protection.md`](./docs/features/github-protection.md).
 
-## Install pre-commit hook (Optional but helpful for AI agents and humans to see a file is blocked before opening a PR)
-```
+## Install the pre-commit hook
+
+The pre-commit hook helps humans and AI agents catch protected-file changes
+before opening a PR.
+
+```sh
 straight-jacket install-hook
 ```
 
-## Start protecting files.
+## Protect files
 
-Add a file to the protected list
-```straight-jacket add <relative path to file>```
+Add one file:
 
-You can also add multiple at one time
-``` straight-jacket add <file1> <file2> ```
+```sh
+straight-jacket add <relative-path-to-file>
+```
 
-Or you can use a pattern
-``` straight-jacket add guardrails/*.ts```
+Add multiple files:
 
-## When a protected file is changed.
+```sh
+straight-jacket add <file1> <file2>
+```
 
-When you or your code AI changes a file, if the pre-commit hook is installed committing will be blocked with a message like
-'CHECKSUM error...
- If you want to approve this change run
- straight-jacket update <file>
- '
+Add a pattern:
 
- If the github action is installed and setup with branch protection it will run on and PR to the protected branch and fail if a protected file ws changed without being updated.
+```sh
+straight-jacket add 'guardrails/*.ts'
+```
 
- ## Remove a protected file
- 
- ``` straight-jacket remove <file>```
+## Approve a protected-file change
+
+If a protected file changes and the pre-commit hook is installed, the commit is
+blocked with a checksum error and instructions to run:
+
+```sh
+straight-jacket update <file>
+```
+
+Run that only when you approve the new contents. It updates the signed manifest
+to accept the current checksum.
+
+If the GitHub Action is installed and required by branch protection, PRs to the
+protected branch fail when a protected file changed without an approved
+`straight-jacket update`.
+
+## Remove a protected file
+
+```sh
+straight-jacket remove <file>
+```
 
 ## Try it out
 
-After setup is complete and pre-commit hook + github action (optional) is installed and configured.
+After setup is complete, and after installing the pre-commit hook and GitHub
+Action if desired, create a test file:
 
-Create a file in the project root.
-``` touch test-straight-jacket.md```
-
-Lock it.
-```straight-jacket add test-straight-jacket.md --reason"Just a test file"```
-
-Now open the file and change it.  Just add "Test" to it and save.
-
-Now try committing
+```sh
+touch test-straight-jacket.md
 ```
+
+Protect it:
+
+```sh
+straight-jacket add test-straight-jacket.md --reason "Just a test file"
+```
+
+Now edit the file, add some text, and try to commit it:
+
+```sh
 git add test-straight-jacket.md
-git commit -m"just a test"
+git commit -m "just a test"
 ```
 
-This should fail the pre-commit hook with an error telling you to update the lock if you approve the change.
+The pre-commit hook should fail and tell you to run
+`straight-jacket update test-straight-jacket.md` if you approve the change.
 
-If you setup the github action as well you can test that works
-```
-git commit -m"just a test" --no-verify
+If you also set up the GitHub Action and branch protection, you can test remote
+enforcement:
+
+```sh
+git commit -m "just a test" --no-verify
 git push
 ```
 
-That will bypass the pre-commit hoooks.
-Next go to github.comn and open a PR from this branch to your protected branch.
+That bypasses the local hook. Open a PR from this branch to your protected
+branch. The merge should be blocked by the failed required status check, and the
+check output will name the changed protected file.
 
-Merge should be blocked by a failed status check.  Error message in the check will say what file was changed without approval
+## Teams and multiple workstations
 
+After initial setup is pushed, additional developers can register their own
+local signer by running `straight-jacket setup` in an up-to-date checkout.
 
+- Make sure they have pulled a branch with Straight Jacket configured.
+- If installed as a dev dependency, run `npm install`.
+- If installed globally, run `npm install -g straight-jacket`.
 
-## Teams / Multiple developers / Multiple workstations 
+Then run:
 
-Once the initial setup is done and pushed, you can let additional developers register a local password by sharing the master password with them.
-- ensure they have pulled the branch / a branch that has the straight-jacket configured in
-- if it was installed with --save-dev: ```npm i```
-- or if installing globally: ```npm i -g straight-jacket```
-
-then run
-```
+```sh
 straight-jacket setup
 ```
 
-If straight-jacket was already setup for this repo (which it should be if they are on the right branch and it is up to date)
-This will 
-- prompt them for the master password
-- then to create their own local password.
+In an already-initialized repository, this verifies the protected state, prompts
+for the master password, then lets the developer create their own local
+password. They should commit and push the signer registration so future
+protected-file updates can verify their signer.
 
-That is all they need to do, then commit and push so their user is registered on the remote / for later.
-
-## Install Claude Code plugin so claude has a better idea of what is blocking it.
+## Install the Claude Code plugin
 
 The plugin ships:
 
@@ -185,8 +254,8 @@ Or reference it directly as a local plugin during development.
 
 ## Use with Codex
 
-Codex reads MCP servers from `~/.codex/config.toml`. Merge the snippet in
-[`codex/config.toml`](./codex/config.toml) after installing the CLI.
+Codex reads MCP servers from `~/.codex/config.toml`. After installing the CLI,
+merge the snippet in [`codex/config.toml`](./codex/config.toml).
 
 ## Use with any MCP client
 
@@ -196,14 +265,15 @@ Codex reads MCP servers from `~/.codex/config.toml`. Merge the snippet in
 straight-jacket-mcp
 ```
 
-## To remove - uninstall
+## Uninstall
 
-delete ./straight-jacket
-delete straight-jacket entries in ./githooks/pre-commit
-delete .github/workflows/straight-jacket.yml
+To remove Straight Jacket from a repository:
 
-remove github branch settings added during setup
-remove github secret
+- delete `.straight-jacket/`;
+- remove Straight Jacket entries from `.githooks/pre-commit`;
+- delete `.github/workflows/straight-jacket.yml`;
+- remove the GitHub branch protection settings added during setup;
+- remove the `STRAIGHT_JACKET_CI_KEY` GitHub secret.
 
 ## Development
 
