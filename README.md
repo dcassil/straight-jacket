@@ -5,29 +5,36 @@ should only change with human approval.
 
 ## How it works
 
-Straight Jacket separates two kinds of authority. The master password encrypts
-the repository registration key, which is used to register trusted local
-signers. Straight Jacket also derives a `STRAIGHT_JACKET_CI_KEY` from that
-master password; store this derived value as a GitHub Actions secret so CI can
-detect unauthorized metadata replacement.
+Straight Jacket starts by creating repository metadata in `.straight-jacket/`.
+That metadata records which files are protected and which human-controlled keys
+are allowed to approve changes.
 
-Each checkout has a local password. The local password encrypts that checkout's
-local signer private key in `.straight-jacket/local/`. That local signer is used
-when a human intentionally adds, updates, removes, or renames protected files.
+During setup, you create two passwords:
 
-Protected files are tracked in a signed JSON manifest. When you run
-`straight-jacket add <file>`, Straight Jacket records the file path, size,
-timestamp, and SHA-256 checksum of the file's current contents. Later,
-`straight-jacket verify` hashes the current contents and compares them to the
-signed checksum. If the file changed without being re-authorized, verification
-fails.
+- **Master password**: used to register trusted checkouts for this repository.
+  It encrypts the repository registration key. Straight Jacket also derives a
+  `STRAIGHT_JACKET_CI_KEY` from it; store that derived value as a GitHub Actions
+  secret so CI can detect unauthorized metadata replacement.
+- **Local password**: used on one checkout when you approve protected-file
+  changes. It encrypts that checkout's local signer private key in
+  `.straight-jacket/local/`.
 
-The metadata is signed too. The manifest must be signed by a registered local
-signer, and the signer registry must be signed by the registration key. In CI,
-`straight-jacket verify --ci-key "$STRAIGHT_JACKET_CI_KEY"` checks the committed
-CI proof, tying the registration metadata back to the original master-derived CI
-key and catching replacement with metadata initialized under a different master
-password.
+When you run `straight-jacket add <file>`, Straight Jacket adds the file to a
+signed JSON manifest with its path, size, timestamp, and SHA-256 checksum. Later,
+`straight-jacket verify` hashes the current file contents and compares them to
+the signed checksum. If the file changed without an approved
+`straight-jacket update <file>`, verification fails.
+
+The signatures protect the metadata itself. The manifest must be signed by a
+registered local signer, and the signer registry must be signed by the
+registration key. In CI, Straight Jacket checks the committed CI proof with:
+
+```sh
+straight-jacket verify --ci-key "$STRAIGHT_JACKET_CI_KEY"
+```
+
+That ties the current registration metadata back to the original master-derived
+CI key.
 
 See [`PRODUCT_VISION.md`](./PRODUCT_VISION.md) for the full rationale.
 

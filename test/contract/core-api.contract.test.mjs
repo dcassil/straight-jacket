@@ -660,7 +660,9 @@ test("installHook installs an advisory pre-commit hook that runs full and staged
     assert.equal(result.hook.configuredHooksPath, ".githooks");
     const hook = await readFile(result.hook.path, "utf8");
     assert.match(hook, /straight-jacket setup --check/);
-    assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
+    assert.match(hook, /git branch --show-current/);
+    assert.match(hook, /verify_mode="--warn"/);
+    assert.match(hook, /straight-jacket verify \$verify_mode && straight-jacket verify --staged \$verify_mode/);
   } finally {
     await fixture.cleanup();
   }

@@ -248,6 +248,34 @@ test("CLI verification emits actionable human output when protected content chan
   }
 });
 
+test("CLI verification warn mode reports violations without a failing exit", async () => {
+  const fixture = await createRepoFixture();
+  try {
+    assert.equal(runCli(fixture.repoRoot, ["init", "--json"], `${PASSWORD}\n${PASSWORD}\n`).status, 0);
+    assert.equal(
+      runCli(fixture.repoRoot, ["add", "docs/policy.md", "--reason", "Human-owned policy file", "--json"], `${PASSWORD}\n`).status,
+      0
+    );
+    await fixture.write("docs/policy.md", "# Policy\n\nAI changed this.\n");
+
+    const verify = runCli(fixture.repoRoot, ["verify", "--warn"]);
+
+    assert.equal(verify.status, 0, verify.stderr);
+    assert.match(verify.stdout, /Straight Jacket verification failed/);
+    assert.match(verify.stdout, /straight-jacket update docs\/policy\.md/);
+    assert.match(verify.stdout, /before a PR to a protected branch will pass the locked changes must be approved/);
+
+    const verifyJson = runCli(fixture.repoRoot, ["verify", "--warn", "--json"]);
+    assert.equal(verifyJson.status, 0, verifyJson.stderr);
+    const body = parseJson(verifyJson.stdout);
+    assert.equal(body.ok, false);
+    assert.equal(body.warn, true);
+    assert.equal(body.violations[0].code, "CHECKSUM_MISMATCH");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("CLI verification emits one copy-pasteable update command for multiple approved changes", async () => {
   const fixture = await createRepoFixture();
   try {

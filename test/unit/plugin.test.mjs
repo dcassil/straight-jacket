@@ -118,7 +118,9 @@ test("hook and CI templates include staged verification and CI key guidance", as
 
   assert.match(hook, /straight-jacket:start/);
   assert.match(hook, /straight-jacket setup --check/);
-  assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
+  assert.match(hook, /git branch --show-current/);
+  assert.match(hook, /verify_mode="--warn"/);
+  assert.match(hook, /straight-jacket verify \$verify_mode && straight-jacket verify --staged \$verify_mode/);
   assert.match(hook, /straight-jacket:end/);
   assert.match(workflow, /straight-jacket verify/);
   assert.match(workflow, /npm install -g straight-jacket/);

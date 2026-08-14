@@ -37,11 +37,12 @@ test("CLI parser maps commands, flags, and positionals without reading passwords
     }
   });
 
-  assert.deepEqual(parseArgs(["verify", "--staged", "--json"]), {
+  assert.deepEqual(parseArgs(["verify", "--staged", "--warn", "--json"]), {
     command: "verify",
     positional: [],
     flags: {
       staged: true,
+      warn: true,
       json: true
     }
   });
@@ -95,6 +96,27 @@ test("CLI output formatter gives actionable human verification failures", async 
   assert.match(output.stdout, /Locked files:\n- docs\/policy\.md/);
   assert.match(output.stdout, /CHECKSUM_MISMATCH docs\/policy\.md/);
   assert.match(output.stdout, /straight-jacket update docs\/policy\.md/);
+});
+
+test("CLI output formatter includes protected-branch approval reminder in warn mode", async () => {
+  const { formatOutput } = await import("../../src/cli/output.js");
+
+  const output = formatOutput({
+    json: false,
+    result: {
+      ok: false,
+      warn: true,
+      violations: [{
+        code: "CHECKSUM_MISMATCH",
+        path: "docs/policy.md",
+        message: "docs/policy.md checksum changed"
+      }]
+    }
+  });
+
+  assert.match(output.stdout, /Straight Jacket verification failed/);
+  assert.match(output.stdout, /straight-jacket update docs\/policy\.md/);
+  assert.match(output.stdout, /before a PR to a protected branch will pass the locked changes must be approved/);
 });
 
 test("CLI output formatter groups approved checksum updates into one command", async () => {
@@ -188,6 +210,7 @@ test("CLI exit-code mapper distinguishes success, verification failure, usage, a
 
   assert.equal(exitCodeForResult({ ok: true }), 0);
   assert.equal(exitCodeForResult({ ok: false, violations: [{ code: "CHECKSUM_MISMATCH" }] }), 1);
+  assert.equal(exitCodeForResult({ ok: false, warn: true, violations: [{ code: "CHECKSUM_MISMATCH" }] }), 0);
   assert.equal(exitCodeForError(Object.assign(new Error("usage"), { code: "USAGE_ERROR" })), 2);
   assert.equal(exitCodeForError(Object.assign(new Error("auth"), { code: "INVALID_PASSWORD" })), 3);
 });
