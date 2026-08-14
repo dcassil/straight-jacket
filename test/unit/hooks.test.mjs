@@ -19,7 +19,9 @@ test("hook installer writes an idempotent pre-commit hook with stable markers", 
     assert.equal((hook.match(/straight-jacket:start/g) ?? []).length, 1);
     assert.equal((hook.match(/straight-jacket:end/g) ?? []).length, 1);
     assert.match(hook, /straight-jacket setup --check/);
-    assert.match(hook, /straight-jacket verify && straight-jacket verify --staged/);
+    assert.match(hook, /git branch --show-current/);
+    assert.match(hook, /verify_mode="--warn"/);
+    assert.match(hook, /straight-jacket verify \$verify_mode && straight-jacket verify --staged \$verify_mode/);
     assert.equal(first.hook.configuredHooksPath, ".githooks");
   } finally {
     await fixture.cleanup();
@@ -35,7 +37,7 @@ test("hook status reports advisory local enforcement posture", async () => {
 
     assert.equal(status.installed, false);
     assert.match(status.path, /\.githooks\/pre-commit$/);
-    assert.equal(status.command, "straight-jacket setup --check && straight-jacket verify && straight-jacket verify --staged");
+    assert.equal(status.command, "straight-jacket setup --check && straight-jacket verify [--warn on non-main branches] && straight-jacket verify --staged [--warn on non-main branches]");
     assert.equal(status.hooksPath, ".githooks");
     assert.equal(status.localHookAdvisory, true);
   } finally {
